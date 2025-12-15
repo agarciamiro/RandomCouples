@@ -44,5 +44,12 @@ struct HomeView: View {
             Spacer()
         }
         .padding()
+        .overlay(alignment: .bottomLeading) {
+            Text("by AGMP")
+                .font(.caption2)
+                .foregroundColor(.gray.opacity(0.6))
+                .padding(.leading, 12)
+                .padding(.bottom, 10)
+        }
     }
 }
