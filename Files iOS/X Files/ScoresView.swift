@@ -7,6 +7,11 @@ struct ScoresView: View {
     private let minPuntaje = -99
     private let maxPuntaje = 99
 
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var showResetAlert = false
+    @State private var showNewGameAlert = false
+
     var body: some View {
         VStack(spacing: 16) {
 
@@ -26,6 +31,68 @@ struct ScoresView: View {
         .padding()
         .navigationTitle("Puntajes")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItemGroup(placement: .navigationBarTrailing) {
+
+                Button {
+                    showResetAlert = true
+                } label: {
+                    Text("Reset")
+                }
+
+                Button {
+                    showNewGameAlert = true
+                } label: {
+                    Text("Nueva")
+                }
+            }
+        }
+        // ✅ Confirmación Reset
+        .alert("Resetear puntajes", isPresented: $showResetAlert) {
+            Button("Cancelar", role: .cancel) { }
+            Button("Reset", role: .destructive) {
+                resetPuntajes()
+            }
+        } message: {
+            Text("Esto pondrá todos los puntajes (equipo e individuales) en 0.")
+        }
+        // ✅ Confirmación Nueva Partida
+        .alert("Nueva partida", isPresented: $showNewGameAlert) {
+            Button("Cancelar", role: .cancel) { }
+            Button("Nueva Partida", role: .destructive) {
+                resetPuntajes()
+                volverAlInicio()
+            }
+        } message: {
+            Text("Se resetearán los puntajes y volverás a la pantalla inicial.")
+        }
+    }
+
+    // --------------------------------------------------------------
+    // MARK: - Acciones
+    // --------------------------------------------------------------
+    private func resetPuntajes() {
+        for i in equipos.indices {
+            equipos[i].puntajeActual = 0
+
+            // por si puntajeIndividual viniera con tamaño distinto
+            if equipos[i].puntajeIndividual.count != equipos[i].jugadores.count {
+                equipos[i].puntajeIndividual = Array(repeating: 0, count: equipos[i].jugadores.count)
+            } else {
+                for j in equipos[i].puntajeIndividual.indices {
+                    equipos[i].puntajeIndividual[j] = 0
+                }
+            }
+        }
+    }
+
+    // Vuelve al inicio haciendo "pop" de pantallas
+    private func volverAlInicio() {
+        // Estamos en ScoresView (push desde AsignacionView). Con dos dismiss regresamos a Home.
+        dismiss() // vuelve a AsignacionView
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            dismiss() // vuelve a HomeView
+        }
     }
 }
 

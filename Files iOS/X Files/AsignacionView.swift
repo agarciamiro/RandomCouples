@@ -36,12 +36,10 @@ struct AsignacionView: View {
 
                 ordenJugadoresView
 
-                // espacio extra para que el botón fijo no tape contenido
-                Spacer().frame(height: 90)
+                Spacer().frame(height: 90) // para que el botón fijo no tape contenido
             }
             .padding(.top, 4)
         }
-        // Botón fijo abajo
         .safeAreaInset(edge: .bottom) {
             NavigationLink(
                 destination: ScoresView(equipos: $equipos)
@@ -71,13 +69,19 @@ extension AsignacionView {
 
         let color = (equipo.tipo == .par) ? Color.blue : Color.red
 
-        // Orden ascendente por número global
-        let paresOrdenados: [(numero: Int, nombre: String)] = zip(equipo.jugadores, equipo.ordenJugadores)
-            .map { (jugador, num) in (numero: num, nombre: jugador.nombre) }
+        // ✅ Orden ascendente por número global + puntaje individual
+        let itemsOrdenados: [(numero: Int, nombre: String, puntos: Int)] = equipo.jugadores.indices
+            .map { idx in
+                let numero = (idx < equipo.ordenJugadores.count) ? equipo.ordenJugadores[idx] : 0
+                let nombre = equipo.jugadores[idx].nombre
+                let puntos = (idx < equipo.puntajeIndividual.count) ? equipo.puntajeIndividual[idx] : 0
+                return (numero: numero, nombre: nombre, puntos: puntos)
+            }
             .sorted { $0.numero < $1.numero }
 
         return VStack(alignment: .leading, spacing: 8) {
 
+            // Header
             HStack(alignment: .firstTextBaseline) {
 
                 Text("Equipo #\(equipo.numero)  \(equipo.tipo.titulo)")
@@ -99,8 +103,18 @@ extension AsignacionView {
                 }
             }
 
-            ForEach(paresOrdenados, id: \.numero) { item in
+            // ✅ Encabezado pequeño para la “columna” de puntos individuales
+            HStack {
+                Spacer()
+                Text("Individual")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+
+            // Filas de jugadores con puntaje individual a la derecha
+            ForEach(itemsOrdenados, id: \.numero) { item in
                 HStack(spacing: 10) {
+
                     Circle()
                         .fill(color.opacity(0.85))
                         .frame(width: 24, height: 24)
@@ -112,6 +126,13 @@ extension AsignacionView {
 
                     Text(item.nombre)
                         .font(.subheadline)
+
+                    Spacer()
+
+                    Text("\(item.puntos)")
+                        .font(.subheadline.bold())
+                        .frame(minWidth: 30, alignment: .trailing)
+                        .foregroundColor(.primary)
                 }
             }
 
@@ -136,10 +157,10 @@ extension AsignacionView {
                 .font(.headline)
                 .padding(.horizontal)
 
-            // ✅ Caso especial: 8 jugadores en 2 columnas (1-4 / 5-8)
+            // 8 jugadores en 2 columnas (1-4 / 5-8)
             if ordenJugadores.count == 8 {
-                let izq = Array(ordenJugadores.prefix(4))     // 1..4
-                let der = Array(ordenJugadores.suffix(4))     // 5..8
+                let izq = Array(ordenJugadores.prefix(4))
+                let der = Array(ordenJugadores.suffix(4))
 
                 HStack(alignment: .top, spacing: 28) {
 
@@ -162,7 +183,6 @@ extension AsignacionView {
                 .padding(.horizontal)
 
             } else {
-                // Caso normal: 1 columna
                 ForEach(ordenJugadores.indices, id: \.self) { idx in
                     Text("\(idx + 1). \(ordenJugadores[idx])")
                         .font(.subheadline)
