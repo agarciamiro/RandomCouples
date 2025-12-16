@@ -58,3 +58,5 @@ App iOS (SwiftUI) para armar equipos y orden de juego **random** (2, 4, 6 u 8 ju
 
 by **AGMP**
 
+
+- v3.0.6 (2025-12-15): README actualizado (notas y estado del proyecto)
