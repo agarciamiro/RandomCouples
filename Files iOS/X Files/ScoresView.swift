@@ -2,15 +2,24 @@ import SwiftUI
 
 struct ScoresView: View {
 
-    @Binding var equipos: [Equipo]     // ✅ Binding (ya no se reinicia)
+    @Binding var equipos: [Equipo]
 
     private let minPuntaje = -99
     private let maxPuntaje = 99
 
-    @Environment(\.dismiss) private var dismiss
+    enum AccionPostResultados {
+        case reset
+        case nueva
+    }
 
-    @State private var showResetAlert = false
-    @State private var showNewGameAlert = false
+    @State private var mostrarResultados = false
+    @State private var accionPendiente: AccionPostResultados = .reset
+
+    // ✅ Ir al Home de forma infalible
+    @State private var mostrarHome = false
+
+    // ✅ Bandera para abrir Home SOLO cuando el sheet ya se cerró
+    @State private var irAlHomePendiente = false
 
     var body: some View {
         VStack(spacing: 16) {
@@ -29,42 +38,71 @@ struct ScoresView: View {
             Spacer()
         }
         .padding()
+        .background(Color(.systemBackground)) // ✅ evita transparencias
         .navigationTitle("Puntajes")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
 
                 Button {
-                    showResetAlert = true
-                } label: {
-                    Text("Reset")
-                }
-
-                Button {
-                    showNewGameAlert = true
+                    accionPendiente = .reset
+                    mostrarResultados = true
                 } label: {
                     Text("Nueva")
                 }
+
+                Button {
+                    accionPendiente = .nueva
+                    mostrarResultados = true
+                } label: {
+                    Text("Finalizar")
+                }
             }
         }
-        // ✅ Confirmación Reset
-        .alert("Resetear puntajes", isPresented: $showResetAlert) {
-            Button("Cancelar", role: .cancel) { }
-            Button("Reset", role: .destructive) {
-                resetPuntajes()
-            }
-        } message: {
-            Text("Esto pondrá todos los puntajes (equipo e individuales) en 0.")
+        .sheet(isPresented: $mostrarResultados) {
+            ResultadosSheet(
+                equipos: equipos,
+                accion: accionPendiente,
+                onResetConfirmado: {
+                    resetPuntajes()
+                    mostrarResultados = false
+                },
+                onNuevaConfirmado: {
+                    resetPuntajes()
+                    irAlHomePendiente = true
+                    mostrarResultados = false
+                }
+            )
         }
-        // ✅ Confirmación Nueva Partida
-        .alert("Nueva partida", isPresented: $showNewGameAlert) {
-            Button("Cancelar", role: .cancel) { }
-            Button("Nueva Partida", role: .destructive) {
-                resetPuntajes()
-                volverAlInicio()
+        // ✅ Cuando el sheet ya se cerró, recién abrimos el Home
+        .onChange(of: mostrarResultados) { _, mostrando in
+            if !mostrando && irAlHomePendiente {
+                irAlHomePendiente = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    mostrarHome = true
+                }
             }
-        } message: {
-            Text("Se resetearán los puntajes y volverás a la pantalla inicial.")
+        }
+        // ✅ Home “pantalla 1” sin depender del stack anterior (y SIN transparencias)
+        .fullScreenCover(isPresented: $mostrarHome) {
+            NavigationStack {
+                ZStack {
+                    Color(.systemBackground)
+                        .ignoresSafeArea()   // ✅ tapa TODO, cero mezcla
+
+                    HomeView()
+                }
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Cancelar") {
+                            mostrarHome = false
+                        }
+                        .font(.footnote)
+                    }
+                }
+            }
+            .interactiveDismissDisabled(true)
         }
     }
 
@@ -75,7 +113,6 @@ struct ScoresView: View {
         for i in equipos.indices {
             equipos[i].puntajeActual = 0
 
-            // por si puntajeIndividual viniera con tamaño distinto
             if equipos[i].puntajeIndividual.count != equipos[i].jugadores.count {
                 equipos[i].puntajeIndividual = Array(repeating: 0, count: equipos[i].jugadores.count)
             } else {
@@ -85,19 +122,10 @@ struct ScoresView: View {
             }
         }
     }
-
-    // Vuelve al inicio haciendo "pop" de pantallas
-    private func volverAlInicio() {
-        // Estamos en ScoresView (push desde AsignacionView). Con dos dismiss regresamos a Home.
-        dismiss() // vuelve a AsignacionView
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-            dismiss() // vuelve a HomeView
-        }
-    }
 }
 
 // --------------------------------------------------------------
-// MARK: - Indicador dinámico
+// MARK: - Indicador dinámico (SIEMPRE fondo VERDE)
 // --------------------------------------------------------------
 extension ScoresView {
 
@@ -114,17 +142,13 @@ extension ScoresView {
             .reduce(0, +)
 
         let texto: String
-        let color: Color
 
         if totalPar > totalImpar {
-            texto = "VA GANANDO PAR — \(totalPar) PUNTOS"
-            color = .blue.opacity(0.7)
+            texto = "GANÓ PAR — \(totalPar) PUNTOS"
         } else if totalImpar > totalPar {
-            texto = "VA GANANDO IMPAR — \(totalImpar) PUNTOS"
-            color = .red.opacity(0.7)
+            texto = "GANÓ IMPAR — \(totalImpar) PUNTOS"
         } else {
-            texto = "VAN EMPATADOS — \(totalPar) PUNTOS"
-            color = .gray.opacity(0.4)
+            texto = "EMPATE — \(totalPar) PUNTOS"
         }
 
         return Text(texto)
@@ -132,14 +156,14 @@ extension ScoresView {
             .foregroundColor(.white)
             .frame(maxWidth: .infinity)
             .padding()
-            .background(color)
+            .background(Color.green.opacity(0.75))
             .cornerRadius(10)
             .padding(.bottom, 8)
     }
 }
 
 // --------------------------------------------------------------
-// MARK: - Tarjeta de Equipo
+// MARK: - Tarjeta de Equipo (puntajes en vivo)
 // --------------------------------------------------------------
 extension ScoresView {
 
@@ -194,5 +218,138 @@ extension ScoresView {
         .background(.ultraThinMaterial)
         .cornerRadius(16)
         .shadow(radius: 4)
+    }
+}
+
+// --------------------------------------------------------------
+// MARK: - Sheet de Resultados (FINAL por equipo + jugador)
+// --------------------------------------------------------------
+private struct ResultadosSheet: View {
+
+    let equipos: [Equipo]
+    let accion: ScoresView.AccionPostResultados
+
+    let onResetConfirmado: () -> Void
+    let onNuevaConfirmado: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    private var totalPar: Int {
+        equipos.filter { $0.tipo == .par }.map { $0.puntajeActual }.reduce(0, +)
+    }
+
+    private var totalImpar: Int {
+        equipos.filter { $0.tipo == .impar }.map { $0.puntajeActual }.reduce(0, +)
+    }
+
+    private var tituloGanador: String {
+        if totalPar > totalImpar { return "🏆 Ganó PAR" }
+        if totalImpar > totalPar { return "🏆 Ganó IMPAR" }
+        return "🤝 Empate"
+    }
+
+    private var subtitulo: String {
+        "PAR: \(totalPar)  —  IMPAR: \(totalImpar)"
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 14) {
+
+                    HStack {
+                        Text("Resultados Finales")
+                            .font(.title2.bold())
+                        Spacer()
+                    }
+
+                    // ✅ Banner RESULTADOS en VERDE (siempre)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(tituloGanador)
+                            .font(.headline)
+                            .foregroundColor(.white)
+
+                        Text(subtitulo)
+                            .font(.subheadline)
+                            .foregroundColor(.white.opacity(0.95))
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+                    .background(Color.green.opacity(0.75))
+                    .cornerRadius(14)
+
+                    VStack(spacing: 12) {
+                        ForEach(equipos) { eq in
+                            let color: Color = (eq.tipo == .par) ? .blue : .red
+
+                            VStack(alignment: .leading, spacing: 10) {
+
+                                HStack {
+                                    Text("Equipo #\(eq.numero)  \(eq.tipo.titulo)")
+                                        .font(.headline)
+                                        .foregroundColor(color)
+
+                                    Spacer()
+
+                                    Text("Total: \(eq.puntajeActual)")
+                                        .font(.headline)
+                                }
+
+                                Divider()
+
+                                ForEach(eq.jugadores.indices, id: \.self) { idx in
+                                    let nombre = eq.jugadores[idx].nombre
+                                    let puntos = (idx < eq.puntajeIndividual.count) ? eq.puntajeIndividual[idx] : 0
+
+                                    HStack {
+                                        Text(nombre)
+                                            .font(.subheadline)
+                                        Spacer()
+                                        Text("\(puntos)")
+                                            .font(.subheadline.bold())
+                                    }
+                                }
+                            }
+                            .padding()
+                            .background(.ultraThinMaterial)
+                            .cornerRadius(16)
+                        }
+                    }
+
+                    Spacer().frame(height: 10)
+
+                    Button {
+                        switch accion {
+                        case .reset:
+                            onResetConfirmado()
+                        case .nueva:
+                            onNuevaConfirmado()
+                        }
+                        dismiss()
+                    } label: {
+                        Text(accion == .reset ? "Nueva Partida" : "Ir al Inicio de la APP")
+                            .font(.headline)
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .background(accion == .reset ? Color.red : Color.green)
+                            .foregroundColor(.white)
+                            .cornerRadius(14)
+                    }
+
+                    Button {
+                        dismiss()
+                    } label: {
+                        Text("Cancelar")
+                            .font(.headline)
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .background(Color.gray.opacity(0.2))
+                            .foregroundColor(.primary)
+                            .cornerRadius(14)
+                    }
+                }
+                .padding()
+            }
+        }
     }
 }

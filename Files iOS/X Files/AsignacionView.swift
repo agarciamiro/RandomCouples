@@ -57,6 +57,8 @@ struct AsignacionView: View {
             }
             .background(.ultraThinMaterial)
         }
+        // ✅ Oculta la flecha “Back” para evitar salir por error
+        .navigationBarBackButtonHidden(true)
     }
 }
 
@@ -103,7 +105,7 @@ extension AsignacionView {
                 }
             }
 
-            // ✅ Encabezado pequeño para la “columna” de puntos individuales
+            // Encabezado pequeño para la “columna” de puntos individuales
             HStack {
                 Spacer()
                 Text("Individual")
