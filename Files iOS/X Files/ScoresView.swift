@@ -4,6 +4,12 @@ struct ScoresView: View {
 
     @Binding var equipos: [Equipo]
 
+    // ✅ bindings para que al volver a AsignacionView se vea el cambio
+    @Binding var empiezaTipo: TipoEquipo
+    @Binding var ordenJugadores: [String]
+
+    @StateObject private var turnosEngine: TurnosEngine
+
     private let minPuntaje = -99
     private let maxPuntaje = 99
 
@@ -15,11 +21,15 @@ struct ScoresView: View {
     @State private var mostrarResultados = false
     @State private var accionPendiente: AccionPostResultados = .reset
 
-    // ✅ Ir al Home de forma infalible
     @State private var mostrarHome = false
-
-    // ✅ Bandera para abrir Home SOLO cuando el sheet ya se cerró
     @State private var irAlHomePendiente = false
+
+    init(equipos: Binding<[Equipo]>, empiezaTipo: Binding<TipoEquipo>, ordenJugadores: Binding<[String]>) {
+        self._equipos = equipos
+        self._empiezaTipo = empiezaTipo
+        self._ordenJugadores = ordenJugadores
+        self._turnosEngine = StateObject(wrappedValue: TurnosEngine(empiezaPartida: empiezaTipo.wrappedValue))
+    }
 
     var body: some View {
         VStack(spacing: 16) {
@@ -38,7 +48,7 @@ struct ScoresView: View {
             Spacer()
         }
         .padding()
-        .background(Color(.systemBackground)) // ✅ evita transparencias
+        .background(Color(.systemBackground))
         .navigationTitle("Puntajes")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -64,6 +74,16 @@ struct ScoresView: View {
                 equipos: equipos,
                 accion: accionPendiente,
                 onResetConfirmado: {
+                    // ✅ NUEVA PARTIDA (Siguiente Partida)
+                    // 1) alterna quién empieza
+                    turnosEngine.siguientePartida()
+                    empiezaTipo = turnosEngine.empiezaPartida
+
+                    // 2) recalcula ORDEN GLOBAL y actualiza numeración de equipos
+                    ordenJugadores = turnosEngine.ordenGlobal(equipos: equipos)
+                    aplicarOrdenGlobalANumeracion()
+
+                    // 3) resetea puntajes
                     resetPuntajes()
                     mostrarResultados = false
                 },
@@ -74,7 +94,6 @@ struct ScoresView: View {
                 }
             )
         }
-        // ✅ Cuando el sheet ya se cerró, recién abrimos el Home
         .onChange(of: mostrarResultados) { _, mostrando in
             if !mostrando && irAlHomePendiente {
                 irAlHomePendiente = false
@@ -83,22 +102,17 @@ struct ScoresView: View {
                 }
             }
         }
-        // ✅ Home “pantalla 1” sin depender del stack anterior (y SIN transparencias)
         .fullScreenCover(isPresented: $mostrarHome) {
             NavigationStack {
                 ZStack {
-                    Color(.systemBackground)
-                        .ignoresSafeArea()   // ✅ tapa TODO, cero mezcla
-
+                    Color(.systemBackground).ignoresSafeArea()
                     HomeView()
                 }
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .navigationBarTrailing) {
-                        Button("Cancelar") {
-                            mostrarHome = false
-                        }
-                        .font(.footnote)
+                        Button("Cancelar") { mostrarHome = false }
+                            .font(.footnote)
                     }
                 }
             }
@@ -106,9 +120,22 @@ struct ScoresView: View {
         }
     }
 
-    // --------------------------------------------------------------
-    // MARK: - Acciones
-    // --------------------------------------------------------------
+    private func aplicarOrdenGlobalANumeracion() {
+        var ordenNumerico: [String: Int] = [:]
+        for (idx, nombre) in ordenJugadores.enumerated() {
+            ordenNumerico[nombre] = idx + 1
+        }
+
+        for i in equipos.indices {
+            equipos[i].ordenJugadores = equipos[i].jugadores.map { ordenNumerico[$0.nombre] ?? 0 }
+
+            // asegura tamaños
+            if equipos[i].puntajeIndividual.count != equipos[i].jugadores.count {
+                equipos[i].puntajeIndividual = Array(repeating: 0, count: equipos[i].jugadores.count)
+            }
+        }
+    }
+
     private func resetPuntajes() {
         for i in equipos.indices {
             equipos[i].puntajeActual = 0
@@ -124,25 +151,14 @@ struct ScoresView: View {
     }
 }
 
-// --------------------------------------------------------------
-// MARK: - Indicador dinámico (SIEMPRE fondo VERDE)
-// --------------------------------------------------------------
 extension ScoresView {
 
     private var indicadorGanador: some View {
 
-        let totalPar = equipos
-            .filter { $0.tipo == .par }
-            .map { $0.puntajeActual }
-            .reduce(0, +)
-
-        let totalImpar = equipos
-            .filter { $0.tipo == .impar }
-            .map { $0.puntajeActual }
-            .reduce(0, +)
+        let totalPar = equipos.filter { $0.tipo == .par }.map { $0.puntajeActual }.reduce(0, +)
+        let totalImpar = equipos.filter { $0.tipo == .impar }.map { $0.puntajeActual }.reduce(0, +)
 
         let texto: String
-
         if totalPar > totalImpar {
             texto = "GANÓ PAR — \(totalPar) PUNTOS"
         } else if totalImpar > totalPar {
@@ -162,14 +178,20 @@ extension ScoresView {
     }
 }
 
-// --------------------------------------------------------------
-// MARK: - Tarjeta de Equipo (puntajes en vivo)
-// --------------------------------------------------------------
 extension ScoresView {
 
     private func tarjetaEquipo(_ equipo: Binding<Equipo>) -> some View {
 
         let color = (equipo.wrappedValue.tipo == .par) ? Color.blue : Color.red
+
+        let itemsOrdenados: [(numero: Int, idxReal: Int, nombre: String, puntos: Int)] =
+        equipo.wrappedValue.jugadores.indices.map { idx in
+            let numero = (idx < equipo.wrappedValue.ordenJugadores.count) ? equipo.wrappedValue.ordenJugadores[idx] : 0
+            let nombre = equipo.wrappedValue.jugadores[idx].nombre
+            let puntos = (idx < equipo.wrappedValue.puntajeIndividual.count) ? equipo.wrappedValue.puntajeIndividual[idx] : 0
+            return (numero: numero, idxReal: idx, nombre: nombre, puntos: puntos)
+        }
+        .sorted { $0.numero < $1.numero }
 
         return VStack(alignment: .leading, spacing: 10) {
 
@@ -177,17 +199,13 @@ extension ScoresView {
                 .font(.title3.bold())
                 .foregroundColor(color)
 
-            ForEach(equipo.wrappedValue.jugadores.indices, id: \.self) { idx in
-
-                let jugador = equipo.wrappedValue.jugadores[idx]
-
+            ForEach(itemsOrdenados, id: \.idxReal) { item in
                 HStack {
-                    Text(jugador.nombre)
-                        .font(.body)
-
+                    Text(item.nombre).font(.body)
                     Spacer()
 
                     Button("−") {
+                        let idx = item.idxReal
                         guard equipo.wrappedValue.puntajeIndividual[idx] > minPuntaje else { return }
                         guard equipo.wrappedValue.puntajeActual > minPuntaje else { return }
 
@@ -195,10 +213,11 @@ extension ScoresView {
                         equipo.wrappedValue.puntajeActual -= 1
                     }
 
-                    Text("\(equipo.wrappedValue.puntajeIndividual[idx])")
+                    Text("\(item.puntos)")
                         .frame(width: 30)
 
                     Button("+") {
+                        let idx = item.idxReal
                         guard equipo.wrappedValue.puntajeIndividual[idx] < maxPuntaje else { return }
                         guard equipo.wrappedValue.puntajeActual < maxPuntaje else { return }
 
@@ -221,9 +240,6 @@ extension ScoresView {
     }
 }
 
-// --------------------------------------------------------------
-// MARK: - Sheet de Resultados (FINAL por equipo + jugador)
-// --------------------------------------------------------------
 private struct ResultadosSheet: View {
 
     let equipos: [Equipo]
@@ -263,7 +279,6 @@ private struct ResultadosSheet: View {
                         Spacer()
                     }
 
-                    // ✅ Banner RESULTADOS en VERDE (siempre)
                     VStack(alignment: .leading, spacing: 6) {
                         Text(tituloGanador)
                             .font(.headline)
@@ -282,6 +297,15 @@ private struct ResultadosSheet: View {
                         ForEach(equipos) { eq in
                             let color: Color = (eq.tipo == .par) ? .blue : .red
 
+                            let itemsOrdenados: [(numero: Int, nombre: String, puntos: Int)] =
+                            eq.jugadores.indices.map { idx in
+                                let numero = (idx < eq.ordenJugadores.count) ? eq.ordenJugadores[idx] : 0
+                                let nombre = eq.jugadores[idx].nombre
+                                let puntos = (idx < eq.puntajeIndividual.count) ? eq.puntajeIndividual[idx] : 0
+                                return (numero: numero, nombre: nombre, puntos: puntos)
+                            }
+                            .sorted { $0.numero < $1.numero }
+
                             VStack(alignment: .leading, spacing: 10) {
 
                                 HStack {
@@ -297,16 +321,11 @@ private struct ResultadosSheet: View {
 
                                 Divider()
 
-                                ForEach(eq.jugadores.indices, id: \.self) { idx in
-                                    let nombre = eq.jugadores[idx].nombre
-                                    let puntos = (idx < eq.puntajeIndividual.count) ? eq.puntajeIndividual[idx] : 0
-
+                                ForEach(itemsOrdenados, id: \.numero) { item in
                                     HStack {
-                                        Text(nombre)
-                                            .font(.subheadline)
+                                        Text(item.nombre).font(.subheadline)
                                         Spacer()
-                                        Text("\(puntos)")
-                                            .font(.subheadline.bold())
+                                        Text("\(item.puntos)").font(.subheadline.bold())
                                     }
                                 }
                             }
@@ -320,10 +339,8 @@ private struct ResultadosSheet: View {
 
                     Button {
                         switch accion {
-                        case .reset:
-                            onResetConfirmado()
-                        case .nueva:
-                            onNuevaConfirmado()
+                        case .reset: onResetConfirmado()
+                        case .nueva: onNuevaConfirmado()
                         }
                         dismiss()
                     } label: {
@@ -336,9 +353,7 @@ private struct ResultadosSheet: View {
                             .cornerRadius(14)
                     }
 
-                    Button {
-                        dismiss()
-                    } label: {
+                    Button { dismiss() } label: {
                         Text("Cancelar")
                             .font(.headline)
                             .padding()

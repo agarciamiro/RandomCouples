@@ -3,7 +3,8 @@ import SwiftUI
 struct AsignacionView: View {
 
     @Binding var equipos: [Equipo]
-    let ordenJugadores: [String]
+    @Binding var ordenJugadores: [String]
+    @Binding var empiezaTipo: TipoEquipo
 
     var body: some View {
         ScrollView {
@@ -13,11 +14,12 @@ struct AsignacionView: View {
                     .font(.title2.bold())
                     .padding(.top, 6)
 
+                Text("Empieza la partida: \(empiezaTipo == .par ? "PAR" : "IMPAR")")
+                    .font(.subheadline.bold())
+                    .foregroundColor(.secondary)
+
                 if equipos.count == 4 {
-                    LazyVGrid(
-                        columns: [GridItem(.flexible()), GridItem(.flexible())],
-                        spacing: 12
-                    ) {
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                         ForEach(equipos) { equipo in
                             tarjetaEquipo(equipo)
                         }
@@ -36,13 +38,17 @@ struct AsignacionView: View {
 
                 ordenJugadoresView
 
-                Spacer().frame(height: 90) // para que el botón fijo no tape contenido
+                Spacer().frame(height: 90)
             }
             .padding(.top, 4)
         }
         .safeAreaInset(edge: .bottom) {
             NavigationLink(
-                destination: ScoresView(equipos: $equipos)
+                destination: ScoresView(
+                    equipos: $equipos,
+                    empiezaTipo: $empiezaTipo,
+                    ordenJugadores: $ordenJugadores
+                )
             ) {
                 Text("Agregar Puntajes")
                     .font(.headline)
@@ -57,21 +63,16 @@ struct AsignacionView: View {
             }
             .background(.ultraThinMaterial)
         }
-        // ✅ Oculta la flecha “Back” para evitar salir por error
         .navigationBarBackButtonHidden(true)
     }
 }
 
-// -------------------------------------------------------------
-// MARK: - TARJETA DE EQUIPO
-// -------------------------------------------------------------
 extension AsignacionView {
 
     private func tarjetaEquipo(_ equipo: Equipo) -> some View {
 
         let color = (equipo.tipo == .par) ? Color.blue : Color.red
 
-        // ✅ Orden ascendente por número global + puntaje individual
         let itemsOrdenados: [(numero: Int, nombre: String, puntos: Int)] = equipo.jugadores.indices
             .map { idx in
                 let numero = (idx < equipo.ordenJugadores.count) ? equipo.ordenJugadores[idx] : 0
@@ -83,9 +84,7 @@ extension AsignacionView {
 
         return VStack(alignment: .leading, spacing: 8) {
 
-            // Header
             HStack(alignment: .firstTextBaseline) {
-
                 Text("Equipo #\(equipo.numero)  \(equipo.tipo.titulo)")
                     .font(.subheadline.bold())
                     .foregroundColor(color)
@@ -105,7 +104,6 @@ extension AsignacionView {
                 }
             }
 
-            // Encabezado pequeño para la “columna” de puntos individuales
             HStack {
                 Spacer()
                 Text("Individual")
@@ -113,7 +111,6 @@ extension AsignacionView {
                     .foregroundColor(.secondary)
             }
 
-            // Filas de jugadores con puntaje individual a la derecha
             ForEach(itemsOrdenados, id: \.numero) { item in
                 HStack(spacing: 10) {
 
@@ -147,9 +144,6 @@ extension AsignacionView {
     }
 }
 
-// -------------------------------------------------------------
-// MARK: - ORDEN DE JUGADORES
-// -------------------------------------------------------------
 extension AsignacionView {
 
     private var ordenJugadoresView: some View {
@@ -159,31 +153,26 @@ extension AsignacionView {
                 .font(.headline)
                 .padding(.horizontal)
 
-            // 8 jugadores en 2 columnas (1-4 / 5-8)
             if ordenJugadores.count == 8 {
                 let izq = Array(ordenJugadores.prefix(4))
                 let der = Array(ordenJugadores.suffix(4))
 
                 HStack(alignment: .top, spacing: 28) {
-
                     VStack(alignment: .leading, spacing: 6) {
                         ForEach(izq.indices, id: \.self) { i in
                             Text("\(i + 1). \(izq[i])")
                                 .font(.subheadline)
                         }
                     }
-
                     VStack(alignment: .leading, spacing: 6) {
                         ForEach(der.indices, id: \.self) { i in
                             Text("\(i + 5). \(der[i])")
                                 .font(.subheadline)
                         }
                     }
-
                     Spacer(minLength: 0)
                 }
                 .padding(.horizontal)
-
             } else {
                 ForEach(ordenJugadores.indices, id: \.self) { idx in
                     Text("\(idx + 1). \(ordenJugadores[idx])")
