@@ -1,140 +1,205 @@
 import Foundation
 import Combine
 
-// ===============================================================
-//  GameEngine.swift
-//  - Usa tus modelos existentes: Equipo / Jugador / TipoEquipo
-//  - Mantiene orden interno por equipo (según ordenJugadores)
-//  - Permite generar el ORDEN GLOBAL de la partida según quién empieza
-//  - "Siguiente partida": alterna quién empieza (PAR <-> IMPAR)
-// ===============================================================
-
-extension Equipo {
-
-    /// Jugadores en el orden fijo del equipo (ordenJugadores ascendente).
-    /// Si hay inconsistencia entre cantidades, usa el orden actual del array.
-    var jugadoresEnOrdenFijo: [Jugador] {
-        guard ordenJugadores.count == jugadores.count else { return jugadores }
-
-        return zip(ordenJugadores, jugadores)
-            .sorted { $0.0 < $1.0 }
-            .map { $0.1 }
-    }
-}
-
-struct TurnoActual {
-    let equipoNumero: Int
-    let equipoTipo: TipoEquipo
-    let jugador: Jugador
-}
+// Motor de turnos PAR/IMPAR:
+// - Construye el orden de PAR y el orden de IMPAR usando eq.ordenJugadores (ranking global).
+// - Alterna tipo en cada cambio de turno.
+// - Si modoAutoAvance = true y anota bola válida -> NO avanza (sigue el mismo jugador).
+// - Si hay falta -> avanza y deja bolaEnManoParaSiguiente = true.
+//
+// ✅ FIX IMPORTANTE:
+// Si NO se pasa "empieza", ahora empieza el que tenga el menor orden global (#1 real),
+// para que coincida con tu "Orden de Juego" en Asignación (ya no random).
 
 final class TurnosEngine: ObservableObject {
 
+    struct Turno: Equatable {
+        let tipo: TipoEquipo
+        let equipoNumero: Int
+        let jugadorNombre: String
+    }
+
+    private struct RankedTurno {
+        let orden: Int
+        let turno: Turno
+    }
+
+    // Config
+    @Published var modoAutoAvance: Bool = false
+
+    // Estado visible
     @Published private(set) var empiezaPartida: TipoEquipo
-    @Published private(set) var turnoTipoActual: TipoEquipo
+    @Published private(set) var turnoActual: Turno
+    @Published private(set) var bolaEnManoParaSiguiente: Bool = false
 
-    private var idxJugadorPorEquipo: [Int:Int] = [:]   // equipo.numero -> índice jugador
-    private var idxEquipoPar: Int = 0
-    private var idxEquipoImpar: Int = 0
+    // Interno
+    private let ordenPar: [Turno]
+    private let ordenImpar: [Turno]
 
-    init(empiezaPartida: TipoEquipo) {
-        self.empiezaPartida = empiezaPartida
-        self.turnoTipoActual = empiezaPartida
-    }
+    // Índices por tipo:
+    // -1 significa “ese tipo aún no ha jugado / no se ha mostrado su primer turno”
+    private var idxPar: Int = -1
+    private var idxImpar: Int = -1
 
-    func siguientePartida() {
-        empiezaPartida = (empiezaPartida == .par) ? .impar : .par
-        turnoTipoActual = empiezaPartida
+    private var tipoActual: TipoEquipo
 
-        idxJugadorPorEquipo = [:]
-        idxEquipoPar = 0
-        idxEquipoImpar = 0
-    }
+    // MARK: - Init
+    init(equipos: [Equipo], empieza: TipoEquipo? = nil) {
 
-    func siguienteTurno(equipos: [Equipo]) -> TurnoActual? {
-        guard !equipos.isEmpty else { return nil }
+        func buildRanked(tipo: TipoEquipo) -> [RankedTurno] {
+            var tmp: [RankedTurno] = []
 
-        let parTeams = equipos.filter { $0.tipo == .par }.sorted { $0.numero < $1.numero }
-        let imparTeams = equipos.filter { $0.tipo == .impar }.sorted { $0.numero < $1.numero }
-
-        func pickTeam(for tipo: TipoEquipo) -> Equipo? {
-            if tipo == .par, !parTeams.isEmpty {
-                let t = parTeams[idxEquipoPar % parTeams.count]
-                idxEquipoPar += 1
-                return t
+            for eq in equipos where eq.tipo == tipo {
+                for (jIdx, j) in eq.jugadores.enumerated() {
+                    let orden = (jIdx < eq.ordenJugadores.count) ? eq.ordenJugadores[jIdx] : 9999
+                    tmp.append(
+                        RankedTurno(
+                            orden: orden,
+                            turno: Turno(tipo: tipo, equipoNumero: eq.numero, jugadorNombre: j.nombre)
+                        )
+                    )
+                }
             }
-            if tipo == .impar, !imparTeams.isEmpty {
-                let t = imparTeams[idxEquipoImpar % imparTeams.count]
-                idxEquipoImpar += 1
-                return t
+
+            tmp.sort { a, b in
+                if a.orden != b.orden { return a.orden < b.orden }
+                return a.turno.jugadorNombre < b.turno.jugadorNombre
             }
-            return (tipo == .par) ? imparTeams.first : parTeams.first
+
+            return tmp
         }
 
-        let tipoActual = turnoTipoActual
-        guard let equipo = pickTeam(for: tipoActual) else { return nil }
+        // 1) Construir rankings locales
+        let rankedParLocal = buildRanked(tipo: .par)
+        let rankedImparLocal = buildRanked(tipo: .impar)
 
-        let lista = equipo.jugadoresEnOrdenFijo
-        guard !lista.isEmpty else { return nil }
+        let ordenParLocal = rankedParLocal.map { $0.turno }
+        let ordenImparLocal = rankedImparLocal.map { $0.turno }
 
-        let idx = idxJugadorPorEquipo[equipo.numero, default: 0]
-        let jugador = lista[idx % lista.count]
-        idxJugadorPorEquipo[equipo.numero] = idx + 1
+        // 2) Elegir quién empieza (determinista)
+        let startLocal: TipoEquipo = {
+            if let empieza { return empieza }
 
-        turnoTipoActual = (turnoTipoActual == .par) ? .impar : .par
+            let pOrden = rankedParLocal.first?.orden
+            let iOrden = rankedImparLocal.first?.orden
 
-        return TurnoActual(equipoNumero: equipo.numero, equipoTipo: equipo.tipo, jugador: jugador)
+            switch (pOrden, iOrden) {
+            case let (p?, i?):
+                if p != i { return (p < i) ? .par : .impar }
+                // desempate estable por nombre
+                let pn = rankedParLocal.first?.turno.jugadorNombre ?? ""
+                let inn = rankedImparLocal.first?.turno.jugadorNombre ?? ""
+                return (pn <= inn) ? .par : .impar
+
+            case (.some, .none):
+                return .par
+            case (.none, .some):
+                return .impar
+            default:
+                // caso extremo: sin jugadores en ambos
+                return Bool.random() ? .par : .impar
+            }
+        }()
+
+        // 3) Definir primer turno consistente + fallback
+        var empiezaFinal = startLocal
+        var tipoActualLocal = startLocal
+        var idxParInit = -1
+        var idxImparInit = -1
+        var turnoInicial = Turno(tipo: startLocal, equipoNumero: 1, jugadorNombre: "—")
+
+        if startLocal == .par, let first = ordenParLocal.first {
+            idxParInit = 0
+            turnoInicial = first
+        } else if startLocal == .impar, let first = ordenImparLocal.first {
+            idxImparInit = 0
+            turnoInicial = first
+        } else if let fallback = ordenParLocal.first {
+            empiezaFinal = .par
+            tipoActualLocal = .par
+            idxParInit = 0
+            turnoInicial = fallback
+        } else if let fallback = ordenImparLocal.first {
+            empiezaFinal = .impar
+            tipoActualLocal = .impar
+            idxImparInit = 0
+            turnoInicial = fallback
+        }
+
+        // 4) Inicializar stored properties (sin usar self antes de tiempo)
+        self.ordenPar = ordenParLocal
+        self.ordenImpar = ordenImparLocal
+
+        self.empiezaPartida = empiezaFinal
+        self.tipoActual = tipoActualLocal
+        self.turnoActual = turnoInicial
+
+        self.idxPar = idxParInit
+        self.idxImpar = idxImparInit
     }
 
-    /// ✅ Orden global de la partida (nombres en el orden real),
-    /// empezando por `empiezaPartida` y alternando PAR/IMPAR, manteniendo
-    /// el orden interno fijo por equipo.
-    func ordenGlobal(equipos: [Equipo]) -> [String] {
-        guard !equipos.isEmpty else { return [] }
+    // MARK: - API pública
 
-        let totalJugadores = equipos.reduce(0) { $0 + $1.jugadores.count }
+    /// Manual: siempre avanza al siguiente jugador del OTRO tipo
+    func siguienteTurno() {
+        bolaEnManoParaSiguiente = false
+        avanzarAlSiguiente(fueFalta: false)
+    }
 
-        let parTeams = equipos.filter { $0.tipo == .par }.sorted { $0.numero < $1.numero }
-        let imparTeams = equipos.filter { $0.tipo == .impar }.sorted { $0.numero < $1.numero }
+    /// Registrar lo que pasó en el tiro.
+    /// - anotoBolaValida: metió bola de su signo
+    /// - fueFalta: blanca / bola rival / no toca bola / etc.
+    func registrarTiro(anotoBolaValida: Bool, fueFalta: Bool) {
 
-        var turno: TipoEquipo = empiezaPartida
-        var idxJugador: [Int:Int] = [:]
-        var idxPar = 0
-        var idxImpar = 0
-
-        func pickTeam(for tipo: TipoEquipo) -> Equipo? {
-            if tipo == .par, !parTeams.isEmpty {
-                let t = parTeams[idxPar % parTeams.count]
-                idxPar += 1
-                return t
-            }
-            if tipo == .impar, !imparTeams.isEmpty {
-                let t = imparTeams[idxImpar % imparTeams.count]
-                idxImpar += 1
-                return t
-            }
-            return (tipo == .par) ? imparTeams.first : parTeams.first
+        if fueFalta {
+            avanzarAlSiguiente(fueFalta: true)
+            return
         }
 
-        var orden: [String] = []
-        orden.reserveCapacity(totalJugadores)
-
-        for _ in 0..<totalJugadores {
-            let tipoActual = turno
-            guard let equipo = pickTeam(for: tipoActual) else { break }
-
-            let lista = equipo.jugadoresEnOrdenFijo
-            if lista.isEmpty { break }
-
-            let i = idxJugador[equipo.numero, default: 0]
-            let jugador = lista[i % lista.count]
-            idxJugador[equipo.numero] = i + 1
-
-            orden.append(jugador.nombre)
-
-            turno = (turno == .par) ? .impar : .par
+        // Si Auto ON y anotó válida -> se queda (no avanza)
+        if modoAutoAvance && anotoBolaValida {
+            bolaEnManoParaSiguiente = false
+            return
         }
 
-        return orden
+        // Si no anotó -> avanza
+        avanzarAlSiguiente(fueFalta: false)
+    }
+
+    func limpiarBolaEnMano() {
+        bolaEnManoParaSiguiente = false
+    }
+
+    // MARK: - Interno
+    private func avanzarAlSiguiente(fueFalta: Bool) {
+
+        bolaEnManoParaSiguiente = fueFalta
+
+        // Alternar tipo
+        tipoActual = (tipoActual == .par) ? .impar : .par
+
+        // Elegir turno del tipoActual SIN saltarse el primero
+        if tipoActual == .par, !ordenPar.isEmpty {
+            if idxPar == -1 { idxPar = 0 } else { idxPar = (idxPar + 1) % ordenPar.count }
+            turnoActual = ordenPar[idxPar]
+            return
+        }
+
+        if tipoActual == .impar, !ordenImpar.isEmpty {
+            if idxImpar == -1 { idxImpar = 0 } else { idxImpar = (idxImpar + 1) % ordenImpar.count }
+            turnoActual = ordenImpar[idxImpar]
+            return
+        }
+
+        // Si falta una lista, cae a la que exista
+        if !ordenPar.isEmpty {
+            if idxPar == -1 { idxPar = 0 } else { idxPar = (idxPar + 1) % ordenPar.count }
+            tipoActual = .par
+            turnoActual = ordenPar[idxPar]
+        } else if !ordenImpar.isEmpty {
+            if idxImpar == -1 { idxImpar = 0 } else { idxImpar = (idxImpar + 1) % ordenImpar.count }
+            tipoActual = .impar
+            turnoActual = ordenImpar[idxImpar]
+        }
     }
 }
