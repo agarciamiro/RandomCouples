@@ -1,4 +1,14 @@
+# macOS
+.DS_Store
 
+# backups
+*.bak.*
+*.bak
+
+# Ignorar Others, pero permitir AppIcons (y todo lo que cuelga de ahí)
+Files iOS/Others/**
+!Files iOS/Others/AppIcons/
+!Files iOS/Others/AppIcons/**
 # Logs/descargas locales
 Others/
 
