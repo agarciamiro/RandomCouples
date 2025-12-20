@@ -1,9 +1,5 @@
 import SwiftUI
 
-// =====================================================
-// MARK: - ScoresView (UI + Lógica + Bola 8 + Resultados)
-// =====================================================
-
 struct ScoresView: View {
 
     @Binding var equipos: [Equipo]
@@ -16,33 +12,33 @@ struct ScoresView: View {
     let bolasImpar = [1, 3, 5, 7, 9, 11, 13]
 
     // Registro real
-    @State private var metidasPar: Set<Int> = []
-    @State private var metidasImpar: Set<Int> = []
+    @State var metidasPar: Set<Int> = []
+    @State var metidasImpar: Set<Int> = []
 
     // Scorer por bola (solo si fue válida para el tirador)
-    @State private var scorerPorBola: [Int: String] = [:]
+    @State var scorerPorBola: [Int: String] = [:]
 
-    // Picker bolas
-    @State private var mostrarPickerBola = false
-    @State private var pickerTipoSeleccionado: TipoEquipo = .par
+    // Picker bolas (para el "+" del jugador en turno)
+    @State var mostrarPickerBola = false
+    @State var pickerTipoSeleccionado: TipoEquipo = .par
 
     // Bola 8
-    @State private var mostrarSheetBola8 = false
-    @State private var bola8Resuelta = false
-    @State private var ganadorPor8: TipoEquipo? = nil
-    @State private var bola8ScorerNombre: String? = nil
-    @State private var bola8FueAdelantada = false
-    @State private var bola8FueIncorrecta = false
-    @State private var troneraCantada: Int = 1
+    @State var mostrarSheetBola8 = false
+    @State var bola8Resuelta = false
+    @State var ganadorPor8: TipoEquipo? = nil
+    @State var bola8ScorerNombre: String? = nil
+    @State var bola8FueAdelantada = false
+    @State var bola8FueIncorrecta = false
+    @State var troneraCantada: Int = 1
 
     // Resultados
     enum AccionPostResultados { case reset, nueva }
-    @State private var mostrarResultados = false
-    @State private var accionPendiente: AccionPostResultados = .reset
+    @State var mostrarResultados = false
+    @State var accionPendiente: AccionPostResultados = .reset
 
     // Volver al inicio (sin depender de HomeView)
-    @State private var mostrarInicio = false
-    @State private var irAlInicioPendiente = false
+    @State var mostrarInicio = false
+    @State var irAlInicioPendiente = false
 
     // MARK: - INITS (compat)
     init(equipos: Binding<[Equipo]>) {
@@ -141,213 +137,307 @@ struct ScoresView: View {
     }
 }
 
-// =====================================================
-// MARK: - UI (Banners / Cards / Tarjetas)
-// =====================================================
 
 extension ScoresView {
 
-    func nombreTipo(_ tipo: TipoEquipo) -> String {
-        switch tipo {
-        case .par: return "PAR"
-        case .impar: return "IMPAR"
-        }
-    }
-
-    func colorTipo(_ tipo: TipoEquipo) -> Color {
-        switch tipo {
-        case .par: return .blue
-        case .impar: return .red
-        }
-    }
+    // MARK: - Banner
 
     var bannerEstadoPartida: some View {
-        let par = totalFinal(.par)
-        let impar = totalFinal(.impar)
-
-        let texto: String
-        if bola8Resuelta, let g = ganadorPor8 {
-            texto = "GANÓ \(nombreTipo(g)) 8"
-        } else {
-            texto = "PAR \(par)  •  IMPAR \(impar)"
-        }
-
-        return Text(texto)
-            .font(.headline)
+        Text(textoBannerVivo)
+            .font(.subheadline.bold())
+            .foregroundColor(.white)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .background(Color.gray.opacity(0.12))
+            .padding(.vertical, 10)
+            .background(Color.green.opacity(0.78))
             .cornerRadius(14)
     }
 
+    var textoBannerVivo: String {
+        if bola8Resuelta, ganadorPor8 != nil { return textoBannerFinal }
+
+        let p = metidasPar.count
+        let i = metidasImpar.count
+
+        // ✅ Nunca mostrar “8 bolas” sin registrar la 8
+        if p == 7 && i == 7 { return "AMBOS A 7 — SE DEFINE CON LA 8" }
+        if p == 7 { return "PAR YA PUEDE CANTAR LA 8 — PAR 7 vs IMPAR \(i)" }
+        if i == 7 { return "IMPAR YA PUEDE CANTAR LA 8 — IMPAR 7 vs PAR \(p)" }
+
+        if p == i { return "VAN EMPATANDO — \(p) BOLAS" }
+        if p > i { return "VA GANANDO PAR — \(p) BOLAS" }
+        return "VA GANANDO IMPAR — \(i) BOLAS"
+    }
+
+    var textoBannerFinal: String {
+        guard let ganador = ganadorPor8 else { return "—" }
+
+        if bola8FueAdelantada {
+            return "🏆 GANÓ \(ganador.titulo) — 8 ADELANTADA"
+        }
+        if bola8FueIncorrecta {
+            return "🏆 GANÓ \(ganador.titulo) — TRONERA INCORRECTA"
+        }
+
+        // Caso normal
+        return ganador == .par ? "🏆 GANÓ PAR 8" : "🏆 GANÓ IMPAR 8"
+    }
+
+    // MARK: - Turnos
+
     var cardTurnos: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("Turno")
-                    .font(.headline)
+        VStack(spacing: 8) {
+
+            HStack(spacing: 10) {
+                Text("Empieza: \(turnos.empiezaPartida.titulo)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
                 Spacer()
-                Text(nombreTipo(turnos.turnoActual.tipo))
-                    .font(.subheadline.bold())
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(colorTipo(turnos.turnoActual.tipo).opacity(0.15))
-                    .cornerRadius(10)
+
+                Toggle("Auto", isOn: $turnos.modoAutoAvance)
+                    .labelsHidden()
+
+                Button {
+                    turnos.siguienteTurno()
+                } label: {
+                    Text("Siguiente Turno")
+                        .font(.subheadline.bold())
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 12)
+                        .background(Color.blue)
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
+                }
             }
 
             HStack(spacing: 10) {
-                Text("Jugador:")
-                    .foregroundColor(.secondary)
-                Text(turnos.turnoActual.jugadorNombre)
-                    .font(.headline)
+                Circle()
+                    .fill(Color.black.opacity(0.85))
+                    .frame(width: 18, height: 18)
+                    .overlay(Text("8").font(.caption2.bold()).foregroundColor(.white))
+                    .opacity(turnos.bolaEnManoParaSiguiente ? 1 : 0.30)
 
-                // "+" solo para el jugador en turno (abre picker)
-                Spacer()
-                Button {
-                    mostrarPickerBola = true
-                } label: {
-                    Text("+")
-                        .font(.headline.bold())
-                        .frame(width: 36, height: 28)
-                        .background(colorTipo(turnos.turnoActual.tipo).opacity(0.18))
-                        .cornerRadius(8)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Turno")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+
+                    Text("\(turnos.turnoActual.tipo.titulo) — \(turnos.turnoActual.jugadorNombre)")
+                        .font(.subheadline.bold())
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+
+                    Text("Equipo #\(turnos.turnoActual.equipoNumero)")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Anotar bola")
+
+                Spacer()
+
+                if turnos.bolaEnManoParaSiguiente {
+                    Text("Bola en mano")
+                        .font(.caption.bold())
+                        .padding(.vertical, 4)
+                        .padding(.horizontal, 8)
+                        .background(Color.orange.opacity(0.22))
+                        .cornerRadius(10)
+                }
+            }
+
+            Button {
+                // Falta: NO suma, y pasa turno (siempre)
+                turnos.registrarTiro(anotoBolaValida: false, fueFalta: true)
+            } label: {
+                Text("Falta: Blanca / Bola rival")
+                    .font(.subheadline.bold())
+                    .padding(.vertical, 9)
+                    .frame(maxWidth: .infinity)
+                    .background(Color.gray.opacity(0.18))
+                    .foregroundColor(.primary)
+                    .cornerRadius(12)
             }
         }
-        .padding(14)
-        .background(Color.gray.opacity(0.08))
+        .padding(12)
+        .background(.ultraThinMaterial)
         .cornerRadius(16)
     }
 
+    // MARK: - Registro Bolas + Bola 8
+
     var cardRegistroBolas: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Registro de bolas")
-                .font(.headline)
-
-            HStack(spacing: 10) {
-                Button {
-                    mostrarPickerBola = true
-                } label: {
-                    Text("Anotar bola")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(Color.blue.opacity(0.15))
-                        .cornerRadius(12)
-                }
-
-                Button {
-                    mostrarSheetBola8 = true
-                } label: {
-                    Text("Bola 8")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(Color.black.opacity(0.12))
-                        .cornerRadius(12)
-                }
-            }
+        VStack(alignment: .leading, spacing: 8) {
 
             HStack {
-                Text("PAR: \(totalFinal(.par))")
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Color.blue.opacity(0.12))
-                    .cornerRadius(10)
-
-                Text("IMPAR: \(totalFinal(.impar))")
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Color.red.opacity(0.12))
-                    .cornerRadius(10)
+                Text("Registro de Bolas")
+                    .font(.headline)
 
                 Spacer()
+
+                Button("Reset") { resetBolas() }
+                    .font(.subheadline)
+                    .foregroundColor(.blue)
+            }
+
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("PAR")
+                        .font(.caption.bold())
+                        .foregroundColor(.blue)
+                    gridBolas(bolasPar, tipo: .par)
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("IMPAR")
+                        .font(.caption.bold())
+                        .foregroundColor(.red)
+                    gridBolas(bolasImpar, tipo: .impar)
+                }
+            }
+
+            Divider().padding(.top, 2)
+
+            // ✅ Mostrar “cantar la 8”
+            if !bola8Resuelta, (metidasPar.count == 7 || metidasImpar.count == 7) {
+                let t =
+                (metidasPar.count == 7 && metidasImpar.count == 7)
+                ? "🎱 Ambos ya pueden cantar la 8"
+                : (metidasPar.count == 7 ? "🎱 PAR ya puede cantar la 8" : "🎱 IMPAR ya puede cantar la 8")
+
+                Text(t)
+                    .font(.subheadline.bold())
+                    .padding(.vertical, 7)
+                    .frame(maxWidth: .infinity)
+                    .background(Color.green.opacity(0.18))
+                    .cornerRadius(12)
+            }
+
+            // ✅ Botón 8 SOLO si alguien llegó a 7
+            if !bola8Resuelta && (metidasPar.count == 7 || metidasImpar.count == 7) {
+
+                let colorFondo: Color = {
+                    if metidasPar.count == 7 && metidasImpar.count < 7 { return .blue }
+                    if metidasImpar.count == 7 && metidasPar.count < 7 { return .red }
+                    return .green
+                }()
+
+                Button {
+                    abrirRegistroBola8()
+                } label: {
+                    Text("🎱 Registrar bola 8 (turno: \(turnos.turnoActual.tipo.titulo))")
+                        .font(.subheadline.bold())
+                        .padding(.vertical, 10)
+                        .frame(maxWidth: .infinity)
+                        .background(colorFondo.opacity(0.92))
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
+                }
+            }
+
+            Text("Tip: Las bolas normales se anotan con el “+” del jugador en turno.")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+        }
+        .padding(12)
+        .background(.ultraThinMaterial)
+        .cornerRadius(16)
+    }
+
+    func gridBolas(_ bolas: [Int], tipo: TipoEquipo) -> some View {
+        let cols = [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())]
+        return LazyVGrid(columns: cols, spacing: 8) {
+            ForEach(bolas, id: \.self) { n in
+                bolaChip(numero: n, tipo: tipo)
             }
         }
-        .padding(14)
-        .background(Color.gray.opacity(0.08))
-        .cornerRadius(16)
+    }
+
+    func bolaChip(numero: Int, tipo: TipoEquipo) -> some View {
+        let marcada = (tipo == .par) ? metidasPar.contains(numero) : metidasImpar.contains(numero)
+        let color: Color = (tipo == .par) ? .blue : .red
+
+        return Button {
+            if marcada { desmarcarBola(numero: numero) }
+        } label: {
+            Circle()
+                .fill(marcada ? color.opacity(0.92) : Color.gray.opacity(0.14))
+                .frame(width: 34, height: 34)
+                .overlay(
+                    Text("\(numero)")
+                        .font(.caption.bold())
+                        .foregroundColor(marcada ? .white : .primary)
+                )
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Tarjeta equipo (+ solo turno)
+
+    func esJugadorDeTurno(_ nombre: String) -> Bool {
+        nombre == turnos.turnoActual.jugadorNombre
     }
 
     func tarjetaEquipo(_ equipo: Binding<Equipo>) -> some View {
-        let tipo = equipo.wrappedValue.tipo
 
-        return VStack(alignment: .leading, spacing: 10) {
+        let color: Color = (equipo.wrappedValue.tipo == .par) ? .blue : .red
+
+        return VStack(alignment: .leading, spacing: 8) {
+
             HStack {
-                Text("Equipo \(nombreTipo(tipo))")
-                    .font(.headline)
+                Text("Equipo #\(equipo.wrappedValue.numero)  \(equipo.wrappedValue.tipo.titulo)")
+                    .font(.subheadline.bold())
+                    .foregroundColor(color)
+
                 Spacer()
-                Text("\(equipo.wrappedValue.puntajeActual)")
-                    .font(.title3.bold())
-                    .foregroundColor(colorTipo(tipo))
+
+                Text("Total: \(equipo.wrappedValue.puntajeActual)")
+                    .font(.subheadline.bold())
             }
 
-            ForEach(Array(equipo.wrappedValue.jugadores.enumerated()), id: \.offset) { idx, jugador in
-                HStack {
-                    Text(jugador.nombre)
+            Divider()
+
+            ForEach(equipo.wrappedValue.jugadores.indices, id: \.self) { idx in
+                let nombre = equipo.wrappedValue.jugadores[idx].nombre
+                let indiv = (idx < equipo.wrappedValue.puntajeIndividual.count) ? equipo.wrappedValue.puntajeIndividual[idx] : 0
+                let enTurno = esJugadorDeTurno(nombre)
+
+                HStack(spacing: 10) {
+                    Text(nombre)
+                        .font(.caption)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.80)
+
                     Spacer()
-                    let ind = (idx < equipo.wrappedValue.puntajeIndividual.count)
-                    ? equipo.wrappedValue.puntajeIndividual[idx]
-                    : 0
-                    Text("\(ind)")
-                        .foregroundColor(.secondary)
+
+                    Text("\(indiv)")
+                        .font(.subheadline.bold())
+                        .frame(width: 30, alignment: .trailing)
+
+                    if enTurno {
+                        Button {
+                            pickerTipoSeleccionado = turnos.turnoActual.tipo
+                            DispatchQueue.main.async { mostrarPickerBola = true }
+                        } label: {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.title3)
+                                .foregroundColor(.green)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
-                .font(.subheadline)
             }
         }
-        .padding(14)
-        .background(colorTipo(tipo).opacity(0.08))
+        .padding(12)
+        .background(.ultraThinMaterial)
         .cornerRadius(16)
+        .shadow(radius: 2)
     }
 }
 
-// =====================================================
-// MARK: - Resultados (ganador + texto final)
-// =====================================================
 
 extension ScoresView {
 
-    private var totalPar: Int { metidasPar.count }
-    private var totalImpar: Int { metidasImpar.count }
+    // MARK: - Picker Sheet (bolas normales)
 
-    // Ganador “duro”:
-    // - Si hubo bola 8 resuelta, ya hay ganador.
-    // - Si no, el primero que llega a 8 bolas gana.
-    private var ganadorActual: TipoEquipo? {
-        if bola8Resuelta, let g = ganadorPor8 { return g }
-        if totalPar >= 8 { return .par }
-        if totalImpar >= 8 { return .impar }
-        return nil
-    }
-
-    // Texto final para ResultadosSheet (NO debe decir empate si 8 vs 7)
-    var textoBannerFinal: String {
-        let par = totalFinal(.par)
-        let impar = totalFinal(.impar)
-
-        if let g = ganadorActual {
-            if bola8Resuelta && bola8FueAdelantada {
-                return "GANÓ \(nombreTipo(g)) (BOLA 8 ADELANTADA)"
-            }
-            if bola8Resuelta && bola8FueIncorrecta {
-                return "GANÓ \(nombreTipo(g)) (BOLA 8 INCORRECTA)"
-            }
-            return "GANÓ \(nombreTipo(g)) (\(par)-\(impar))"
-        }
-
-        if par == impar { return "EMPATE (\(par)-\(impar))" }
-        return "GANA \(par > impar ? "PAR" : "IMPAR") (\(par)-\(impar))"
-    }
-}
-
-// =====================================================
-// MARK: - Sheets (Picker bolas + Bola 8)
-// =====================================================
-
-extension ScoresView {
-
-    // Picker Sheet (bolas normales)
     var pickerBolaSheet: some View {
         NavigationStack {
             VStack(spacing: 12) {
@@ -399,80 +489,18 @@ extension ScoresView {
                     .padding(.bottom, 10)
             }
         }
+        // ✅ evita "ambiguous" en tu Xcode
         .presentationDetents(Set<PresentationDetent>([.medium, .large]))
-        .onAppear { pickerTipoSeleccionado = turnos.turnoActual.tipo }
+        .onAppear {
+            pickerTipoSeleccionado = turnos.turnoActual.tipo
+        }
         .onChange(of: turnos.turnoActual) { _, _ in
             pickerTipoSeleccionado = turnos.turnoActual.tipo
         }
     }
 
-    // Sheet Bola 8
-    var bola8Sheet: some View {
-        NavigationStack {
-            VStack(spacing: 14) {
-                Text("Bola 8")
-                    .font(.title3.bold())
-                    .padding(.top, 8)
+    // MARK: - Registrar bola normal
 
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Jugador en turno: \(turnos.turnoActual.jugadorNombre)")
-                        .font(.headline)
-
-                    Text("Equipo: \(nombreTipo(turnos.turnoActual.tipo))")
-                        .foregroundColor(.secondary)
-
-                    Divider()
-
-                    Text("Tronera cantada")
-                        .font(.headline)
-
-                    Picker("Tronera", selection: $troneraCantada) {
-                        ForEach(1...6, id: \.self) { n in
-                            Text("Tronera \(n)").tag(n)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-
-                    Divider()
-
-                    Toggle("Bola 8 adelantada (pierde el tirador)", isOn: $bola8FueAdelantada)
-                    Toggle("Bola 8 incorrecta (pierde el tirador)", isOn: $bola8FueIncorrecta)
-                }
-                .padding(12)
-                .background(Color.gray.opacity(0.10))
-                .cornerRadius(12)
-
-                Button {
-                    confirmarBola8()
-                    mostrarSheetBola8 = false
-                    mostrarResultados = true
-                } label: {
-                    Text("Confirmar")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(Color.black.opacity(0.12))
-                        .cornerRadius(12)
-                }
-
-                Button("Cancelar") {
-                    mostrarSheetBola8 = false
-                }
-                .padding(.bottom, 10)
-            }
-            .padding(.horizontal)
-        }
-        .presentationDetents(Set<PresentationDetent>([.medium, .large]))
-    }
-}
-
-// =====================================================
-// MARK: - Lógica (registrar, sincronizar, reset, helpers)
-// =====================================================
-
-extension ScoresView {
-
-    // Registrar bola normal
     func registrarBola(numero: Int) {
         guard !bola8Resuelta else { return }
 
@@ -515,6 +543,8 @@ extension ScoresView {
         sincronizarTotales()
     }
 
+    // MARK: - Totales
+
     func totalBolas(_ tipo: TipoEquipo) -> Int {
         (tipo == .par) ? metidasPar.count : metidasImpar.count
     }
@@ -527,25 +557,8 @@ extension ScoresView {
         return totalBolas(tipo)
     }
 
-    // Bola 8
-    func confirmarBola8() {
-        guard !bola8Resuelta else { return }
+    // MARK: - Sincronizar puntajes (1 fuente de verdad)
 
-        bola8Resuelta = true
-        bola8ScorerNombre = turnos.turnoActual.jugadorNombre
-
-        // Si adelantada o incorrecta => gana el otro equipo
-        if bola8FueAdelantada || bola8FueIncorrecta {
-            ganadorPor8 = (turnos.turnoActual.tipo == .par) ? .impar : .par
-        } else {
-            // “limpia”
-            ganadorPor8 = turnos.turnoActual.tipo
-        }
-
-        sincronizarTotales()
-    }
-
-    // Sincronizar puntajes (1 fuente de verdad)
     func sincronizarTotales() {
 
         // 1) reset equipos
@@ -565,7 +578,7 @@ extension ScoresView {
         }
 
         // 3) puntos individuales por bolas válidas
-        for (_, scorer) in scorerPorBola {
+        for (bola, scorer) in scorerPorBola {
             if let (eIdx, jIdx) = encontrarJugador(scorer) {
                 asegurarTamanosIndividual(enEquipo: eIdx)
                 equipos[eIdx].puntajeIndividual[jIdx] += 1
@@ -579,6 +592,7 @@ extension ScoresView {
            !bola8FueAdelantada,
            !bola8FueIncorrecta
         {
+            // sumar 1 al scorer8 (ya está contemplado en totalFinal del equipo por UI)
             if let (eIdx, jIdx) = encontrarJugador(scorer8),
                equipos[eIdx].tipo == ganador {
                 asegurarTamanosIndividual(enEquipo: eIdx)
@@ -587,7 +601,8 @@ extension ScoresView {
         }
     }
 
-    // Reset
+    // MARK: - Reset
+
     func resetBolas() {
         metidasPar.removeAll()
         metidasImpar.removeAll()
@@ -618,7 +633,8 @@ extension ScoresView {
         resetBolas()
     }
 
-    // Helpers
+    // MARK: - Helpers
+
     func encontrarJugador(_ nombre: String) -> (Int, Int)? {
         for eIdx in equipos.indices {
             if let jIdx = equipos[eIdx].jugadores.firstIndex(where: { $0.nombre == nombre }) {
@@ -635,10 +651,131 @@ extension ScoresView {
     }
 }
 
-// =====================================================
-// MARK: - ResultadosSheet (dentro del mismo archivo)
-// =====================================================
 
+extension ScoresView {
+
+    // MARK: - Abrir registro bola 8
+
+    func abrirRegistroBola8() {
+        troneraCantada = 1
+        mostrarSheetBola8 = true
+    }
+
+    // MARK: - Sheet Bola 8
+
+    var bola8Sheet: some View {
+        NavigationStack {
+            VStack(spacing: 14) {
+
+                HStack {
+                    Text("🎱 Registrar bola 8")
+                        .font(.headline.bold())
+                    Spacer()
+                }
+
+                Text("Turno actual: \(turnos.turnoActual.tipo.titulo) — \(turnos.turnoActual.jugadorNombre)")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Tronera cantada")
+                        .font(.subheadline.bold())
+
+                    Picker("Tronera", selection: $troneraCantada) {
+                        ForEach(1...6, id: \.self) { n in
+                            Text("Tronera \(n)").tag(n)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+                .padding(12)
+                .background(Color.gray.opacity(0.12))
+                .cornerRadius(14)
+
+                Button {
+                    resolverBola8(fueEnTroneraCantada: true)
+                    mostrarSheetBola8 = false
+                } label: {
+                    Text("✅ Entró en la tronera cantada")
+                        .font(.subheadline.bold())
+                        .padding(12)
+                        .frame(maxWidth: .infinity)
+                        .background(Color.green.opacity(0.90))
+                        .foregroundColor(.white)
+                        .cornerRadius(14)
+                }
+
+                Button {
+                    resolverBola8(fueEnTroneraCantada: false)
+                    mostrarSheetBola8 = false
+                } label: {
+                    Text("❌ Entró en otra tronera")
+                        .font(.subheadline.bold())
+                        .padding(12)
+                        .frame(maxWidth: .infinity)
+                        .background(Color.orange.opacity(0.90))
+                        .foregroundColor(.white)
+                        .cornerRadius(14)
+                }
+
+                Button {
+                    mostrarSheetBola8 = false
+                } label: {
+                    Text("Cancelar")
+                        .font(.subheadline.bold())
+                        .padding(12)
+                        .frame(maxWidth: .infinity)
+                        .background(Color.gray.opacity(0.18))
+                        .foregroundColor(.primary)
+                        .cornerRadius(14)
+                }
+
+                Spacer(minLength: 0)
+            }
+            .padding()
+        }
+        .presentationDetents(Set<PresentationDetent>([.medium, .large]))
+    }
+
+    // MARK: - Resolver lógica bola 8 (según turno)
+
+    func resolverBola8(fueEnTroneraCantada: Bool) {
+        guard !bola8Resuelta else { return }
+
+        let tipoTirador = turnos.turnoActual.tipo
+        let tiradorTiene7 = (tipoTirador == .par) ? (metidasPar.count == 7) : (metidasImpar.count == 7)
+
+        bola8Resuelta = true
+        bola8FueAdelantada = false
+        bola8FueIncorrecta = false
+
+        if !tiradorTiene7 {
+            // 8 adelantada -> gana el otro
+            ganadorPor8 = (tipoTirador == .par) ? .impar : .par
+            bola8FueAdelantada = true
+            bola8ScorerNombre = nil
+        } else if !fueEnTroneraCantada {
+            // tronera incorrecta -> gana el otro
+            ganadorPor8 = (tipoTirador == .par) ? .impar : .par
+            bola8FueIncorrecta = true
+            bola8ScorerNombre = nil
+        } else {
+            // victoria limpia
+            ganadorPor8 = tipoTirador
+            bola8ScorerNombre = turnos.turnoActual.jugadorNombre
+        }
+
+        sincronizarTotales()
+
+        // ✅ automático: muestra resultados
+        accionPendiente = .reset
+        mostrarResultados = true
+    }
+}
+
+
+// MARK: - Resultados Sheet (sin scroll)
 struct ResultadosSheet: View {
 
     let textoBannerFinal: String
@@ -648,64 +785,96 @@ struct ResultadosSheet: View {
     let onResetConfirmado: () -> Void
     let onNuevaConfirmado: () -> Void
 
+    @Environment(\.dismiss) private var dismiss
+
     var body: some View {
         NavigationStack {
-            VStack(spacing: 14) {
+            VStack(spacing: 10) {
+
+                HStack {
+                    Text("Resultados")
+                        .font(.headline.bold())
+                    Spacer()
+                }
 
                 Text(textoBannerFinal)
-                    .font(.title3.bold())
-                    .multilineTextAlignment(.center)
-                    .padding(.top, 10)
+                    .font(.subheadline.bold())
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(10)
+                    .background(Color.green.opacity(0.78))
+                    .cornerRadius(14)
 
-                VStack(alignment: .leading, spacing: 10) {
-                    ForEach(equipos) { e in
-                        HStack {
-                            Text("Equipo \(e.tipo == .par ? "PAR" : "IMPAR")")
-                                .font(.headline)
-                            Spacer()
-                            Text("\(e.puntajeActual)")
-                                .font(.headline)
+                VStack(spacing: 8) {
+                    ForEach(equipos) { eq in
+                        let color: Color = (eq.tipo == .par) ? .blue : .red
+
+                        VStack(alignment: .leading, spacing: 6) {
+
+                            HStack {
+                                Text("Equipo #\(eq.numero)  \(eq.tipo.titulo)")
+                                    .font(.subheadline.bold())
+                                    .foregroundColor(color)
+
+                                Spacer()
+
+                                Text("Total: \(eq.puntajeActual)")
+                                    .font(.subheadline.bold())
+                            }
+
+                            Divider()
+
+                            ForEach(eq.jugadores.indices, id: \.self) { idx in
+                                let nombre = eq.jugadores[idx].nombre
+                                let puntos = (idx < eq.puntajeIndividual.count) ? eq.puntajeIndividual[idx] : 0
+
+                                HStack {
+                                    Text(nombre)
+                                        .font(.caption2)
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.85)
+                                    Spacer()
+                                    Text("\(puntos)")
+                                        .font(.caption.bold())
+                                }
+                            }
                         }
-                    }
-                }
-                .padding(12)
-                .background(Color.gray.opacity(0.10))
-                .cornerRadius(12)
-
-                Spacer()
-
-                if accion == .reset {
-                    Button {
-                        onResetConfirmado()
-                    } label: {
-                        Text("Nueva partida (mismos jugadores)")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(Color.blue.opacity(0.15))
-                            .cornerRadius(12)
-                    }
-                } else {
-                    Button {
-                        onNuevaConfirmado()
-                    } label: {
-                        Text("Ir al inicio (nueva asignación)")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(Color.green.opacity(0.15))
-                            .cornerRadius(12)
+                        .padding(10)
+                        .background(.ultraThinMaterial)
+                        .cornerRadius(16)
                     }
                 }
 
-                Spacer().frame(height: 10)
+                Button {
+                    switch accion {
+                    case .reset: onResetConfirmado()
+                    case .nueva: onNuevaConfirmado()
+                    }
+                    dismiss()
+                } label: {
+                    Text(accion == .reset ? "Nueva Partida" : "Ir al Inicio")
+                        .font(.subheadline.bold())
+                        .padding(12)
+                        .frame(maxWidth: .infinity)
+                        .background(accion == .reset ? Color.red : Color.green)
+                        .foregroundColor(.white)
+                        .cornerRadius(14)
+                }
+
+                Button {
+                    dismiss()
+                } label: {
+                    Text("Cancelar")
+                        .font(.subheadline.bold())
+                        .padding(12)
+                        .frame(maxWidth: .infinity)
+                        .background(Color.gray.opacity(0.18))
+                        .foregroundColor(.primary)
+                        .cornerRadius(14)
+                }
             }
-            .padding(.horizontal)
-            .navigationTitle("Resultados")
-            .navigationBarTitleDisplayMode(.inline)
+            .padding()
         }
-        .interactiveDismissDisabled(true)
-        .presentationDetents(Set<PresentationDetent>([.medium, .large]))
+        .presentationDetents(Set<PresentationDetent>([.large]))
     }
 }
-
