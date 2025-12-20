@@ -8,3 +8,7 @@ Others/
 *.bak
 *.bak
 *.bak
+!Files\ iOS/Others/
+!Files\ iOS/Others/AppIcons/
+!Files\ iOS/Others/AppIcons/playstore.png
+!Files\ iOS/Others/AppIcons/appstore.png
