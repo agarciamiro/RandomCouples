@@ -144,7 +144,7 @@ extension ScoresView {
         }
 
         // 3) puntos individuales por bolas válidas
-        for (bola, scorer) in scorerPorBola {
+        for (_, scorer) in scorerPorBola {
             if let (eIdx, jIdx) = encontrarJugador(scorer) {
                 asegurarTamanosIndividual(enEquipo: eIdx)
                 equipos[eIdx].puntajeIndividual[jIdx] += 1
