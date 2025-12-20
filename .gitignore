@@ -1,16 +1,14 @@
 # macOS
 .DS_Store
 
-# Backups
-*.bak
+# backups
 *.bak.*
+*.bak
 
-# Ignorar todo "Files iOS/Others"...
+# Ignore only the iOS Others folder, but keep AppIcons tracked
 Files iOS/Others/**
-
-# ...pero permitir AppIcons completo (incluye android/ y png)
 !Files iOS/Others/AppIcons/
 !Files iOS/Others/AppIcons/**
 
-# Logs/descargas locales (si existe esa carpeta)
+# Ignore local scratch folder at repo root
 Others/
