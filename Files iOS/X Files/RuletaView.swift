@@ -6,20 +6,25 @@ struct RuletaView: View {
 
     @State private var angulo: Double = 0
     @State private var mostrarBotonGirar = true
+    @State private var mostrandoGenerando = false
+
     @State private var equiposGenerados: [Equipo] = []
     @State private var ordenGlobal: [String] = []
+
+    // ✅ Navegación moderna (iOS 16+), sin deprecated
+    @State private var irAAsignacion = false
 
     var body: some View {
         VStack(spacing: 26) {
 
             // -------------------------------------------------
-            // TÍTULO VERDADERO (statement completo)
+            // TÍTULO
             // -------------------------------------------------
             VStack(spacing: 4) {
                 Text("Asignación Aleatoria de:")
                     .font(.title2.bold())
 
-                Text("signo · equipos · orden de juego")
+                Text("signo · equipos · orden de jugadores")
                     .font(.footnote)
                     .foregroundColor(.gray)
             }
@@ -27,7 +32,7 @@ struct RuletaView: View {
             .padding(.top, 8)
 
             // -------------------------------------------------
-            // RULETA + PUNTERO (mecanismo visual)
+            // RULETA + PUNTERO
             // -------------------------------------------------
             ZStack {
                 Circle()
@@ -54,7 +59,7 @@ struct RuletaView: View {
             }
 
             // -------------------------------------------------
-            // BOTÓN GIRAR
+            // BOTÓN GIRAR / ESTADO GENERANDO
             // -------------------------------------------------
             if mostrarBotonGirar {
                 Button {
@@ -68,38 +73,37 @@ struct RuletaView: View {
                         .foregroundColor(.white)
                         .cornerRadius(14)
                 }
-            }
-
-            // -------------------------------------------------
-            // CONTINUAR
-            // -------------------------------------------------
-            if !equiposGenerados.isEmpty {
-                NavigationLink(
-                    destination: AsignacionView(
-                        equipos: $equiposGenerados,
-                        ordenJugadores: ordenGlobal
-                    )
-                ) {
-                    Text("CONTINUAR")
-                        .font(.title3.bold())
-                        .padding()
-                        .frame(maxWidth: 240)
-                        .background(Color.green)
-                        .foregroundColor(.white)
-                        .cornerRadius(14)
+            } else {
+                if mostrandoGenerando {
+                    HStack(spacing: 10) {
+                        ProgressView()
+                        Text("Generando asignación…")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
                 }
             }
 
             Spacer()
         }
         .padding()
+
         // Blindaje contra títulos heredados
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                EmptyView()
-            }
+        .toolbar { ToolbarItem(placement: .principal) { EmptyView() } }
+
+        // ✅ Navegación correcta (sin warning / sin NavigationLink hidden)
+        .navigationDestination(isPresented: $irAAsignacion) {
+            AsignacionView(
+                equipos: $equiposGenerados,
+                ordenJugadores: ordenGlobal
+            )
+        }
+
+        // Si vuelves atrás desde Asignación y quieres volver a girar:
+        .onAppear {
+            irAAsignacion = false
         }
     }
 
@@ -108,12 +112,23 @@ struct RuletaView: View {
     // -------------------------------------------------
     private func iniciarGiro() {
         mostrarBotonGirar = false
+        mostrandoGenerando = true
 
         let giro = Double.random(in: 1080...1620)
         angulo += giro
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
             generarEquiposYOrden()
+
+            // ✅ Ir directo a Asignación solo si se generó bien
+            if !equiposGenerados.isEmpty, !ordenGlobal.isEmpty {
+                mostrandoGenerando = false
+                irAAsignacion = true
+            } else {
+                // fallback: no se generó (caso raro), permitimos volver a girar
+                mostrandoGenerando = false
+                mostrarBotonGirar = true
+            }
         }
     }
 
@@ -146,6 +161,8 @@ struct RuletaView: View {
                 [mezclados[4], mezclados[5], mezclados[6], mezclados[7]]
             ]
         default:
+            equiposGenerados = []
+            ordenGlobal = []
             return
         }
 

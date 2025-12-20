@@ -1,7 +1,8 @@
 import SwiftUI
 
 // -----------------------------------------------
-// Normaliza nombres: "  lUiS  pErEz " → "Luis Perez"
+// Normaliza nombres al FINAL (para validar/pasar a Ruleta):
+// "  lUiS  pErEz " → "Luis Perez"
 // - Quita espacios extra
 // - Capitaliza cada palabra
 // -----------------------------------------------
@@ -9,7 +10,6 @@ func normalizarNombre(_ texto: String) -> String {
     let trimmed = texto.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !trimmed.isEmpty else { return "" }
 
-    // Colapsa espacios múltiples
     let parts = trimmed
         .split(whereSeparator: { $0.isWhitespace })
         .map(String.init)
@@ -22,6 +22,66 @@ func normalizarNombre(_ texto: String) -> String {
     }
 
     return normalizedWords.joined(separator: " ")
+}
+
+// -----------------------------------------------
+// EN VIVO (mientras escribes):
+// ✅ Desde la primera letra: "a" -> "A", "aaaa" -> "Aaaa"
+// ✅ Capitaliza cada palabra después de espacio
+// ✅ No fuerza el resto a minúsculas
+// ✅ Limpia espacios al inicio y colapsa múltiples
+// ✅ Respeta el espacio final si estás escribiendo 2 nombres
+// -----------------------------------------------
+func normalizarNombreEnVivo(_ texto: String) -> String {
+    if texto.isEmpty { return "" }
+
+    let endsWithSpace = texto.last?.isWhitespace ?? false
+
+    // 1) Quitar espacios al inicio
+    var s = texto
+    while let first = s.first, first.isWhitespace { s.removeFirst() }
+
+    // 2) Colapsar espacios múltiples a uno solo (sin romper el trailing space)
+    var collapsed = ""
+    var lastWasSpace = false
+    for ch in s {
+        if ch.isWhitespace {
+            if !lastWasSpace {
+                collapsed.append(" ")
+            }
+            lastWasSpace = true
+        } else {
+            collapsed.append(ch)
+            lastWasSpace = false
+        }
+    }
+
+    // Si el usuario acaba en espacio, lo dejamos (1 solo)
+    if endsWithSpace, !collapsed.isEmpty, collapsed.last != " " {
+        collapsed.append(" ")
+    }
+
+    // 3) Capitalizar primera letra de cada palabra (sin tocar el resto)
+    var result = ""
+    var capNext = true
+
+    for ch in collapsed {
+        if ch == " " {
+            result.append(ch)
+            capNext = true
+            continue
+        }
+
+        if capNext, ch.isLetter {
+            result.append(String(ch).uppercased())
+            capNext = false
+        } else {
+            result.append(ch)
+            capNext = false
+        }
+    }
+
+    return result
 }
 
 // Cuenta letras (A–Z) ignorando espacios y símbolos, para regla min 4
@@ -85,13 +145,12 @@ struct IngresarNombresView: View {
                         text: Binding(
                             get: { nombres[index] },
                             set: { nuevo in
-                                // ✅ No normalizamos agresivamente al escribir.
-                                // Solo guardamos lo que escribe, y normalizamos para validar/pasar a Ruleta.
-                                nombres[index] = nuevo
+                                // ✅ UX #1: capitaliza desde la primera letra
+                                nombres[index] = normalizarNombreEnVivo(nuevo)
                             }
                         )
                     )
-                    .textInputAutocapitalization(.words)
+                    .textInputAutocapitalization(.never) // evitamos que el teclado “pelee”
                     .autocorrectionDisabled()
                     .focused($foco, equals: index)
                     .submitLabel(index == maxJugadores - 1 ? .done : .next)
@@ -103,7 +162,6 @@ struct IngresarNombresView: View {
             }
 
             Button {
-                // Validación al tocar Continuar
                 if !todosValidos {
                     mensajeAlerta = "Completa los \(maxJugadores) nombres (mínimo 4 letras cada uno)."
                     mostrarAlerta = true
@@ -115,7 +173,6 @@ struct IngresarNombresView: View {
                     return
                 }
 
-                // ✅ OK
                 foco = nil
                 irARuleta = true
 

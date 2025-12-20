@@ -5,7 +5,7 @@ struct AsignacionView: View {
     @Binding var equipos: [Equipo]
     let ordenJugadores: [String]
 
-    // ✅ Necesario para poder navegar a ScoresView (porque ScoresView exige turnos:)
+    // ✅ Necesario para navegar a ScoresView (porque ScoresView exige turnos:)
     @StateObject private var turnos: TurnosEngine
 
     // ✅ Init para crear el motor usando los equipos ya generados por RuletaView
@@ -30,7 +30,7 @@ struct AsignacionView: View {
                 }
                 .padding(.bottom, 8)
 
-                // ✅ Quién empieza (del motor real, no “equipos.first”)
+                // ✅ #6 UX: agregar "Equipo"
                 Text("Empieza la partida: Equipo \(turnos.empiezaPartida.titulo)")
                     .font(.subheadline)
                     .foregroundColor(.gray)
@@ -39,13 +39,14 @@ struct AsignacionView: View {
                 ForEach(equipos) { equipo in
                     VStack(alignment: .leading, spacing: 10) {
 
-                        Text("Equipo #\(equipo.numero) jugadores \(equipo.tipo.titulo)")
+                        // ✅ #7/#8 UX: wording consistente
+                        Text("Equipo #\(equipo.numero) — jugadores \(equipo.tipo.titulo)")
                             .font(.headline)
                             .foregroundColor(equipo.tipo == .par ? .blue : .red)
 
                         ForEach(Array(equipo.jugadores.enumerated()), id: \.element.id) { index, jugador in
-                            HStack {
-                                Text("\(equipo.ordenJugadores[index])")
+                            HStack(spacing: 10) {
+                                Text("\(equipo.ordenJugadores.indices.contains(index) ? equipo.ordenJugadores[index] : (index + 1))")
                                     .font(.caption.bold())
                                     .frame(width: 24, height: 24)
                                     .background(equipo.tipo == .par ? Color.blue : Color.red)
@@ -54,6 +55,10 @@ struct AsignacionView: View {
 
                                 Text(jugador.nombre)
                                     .font(.body)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.85)
+
+                                Spacer()
                             }
                         }
                     }
@@ -70,13 +75,15 @@ struct AsignacionView: View {
                     ForEach(ordenJugadores.indices, id: \.self) { i in
                         Text("\(i + 1). \(ordenJugadores[i])")
                             .font(.subheadline)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
                     }
                 }
                 .padding()
                 .background(Color(.systemGray6))
                 .cornerRadius(14)
 
-                // ✅ NAVEGACIÓN CORRECTA A SCORESVIEW (con turnos:)
+                // ✅ #9 UX: botón que SI navega a ScoresView
                 NavigationLink {
                     ScoresView(
                         equipos: $equipos,
