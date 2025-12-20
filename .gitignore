@@ -5,3 +5,4 @@ Others/
 # macOS
 .DS_Store
 *.bak.*
+*.bak
