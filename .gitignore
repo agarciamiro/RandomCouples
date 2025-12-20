@@ -1,24 +1,16 @@
 # macOS
 .DS_Store
 
-# backups
-*.bak.*
+# Backups
 *.bak
+*.bak.*
 
-# Ignorar Others, pero permitir AppIcons (y todo lo que cuelga de ahí)
+# Ignorar todo "Files iOS/Others"...
 Files iOS/Others/**
+
+# ...pero permitir AppIcons completo (incluye android/ y png)
 !Files iOS/Others/AppIcons/
 !Files iOS/Others/AppIcons/**
-# Logs/descargas locales
-Others/
 
-# macOS
-.DS_Store
-*.bak.*
-*.bak
-*.bak
-*.bak
-!Files\ iOS/Others/
-!Files\ iOS/Others/AppIcons/
-!Files\ iOS/Others/AppIcons/playstore.png
-!Files\ iOS/Others/AppIcons/appstore.png
+# Logs/descargas locales (si existe esa carpeta)
+Others/
