@@ -15,7 +15,7 @@ struct ScoresView: View {
     @State var metidasPar: Set<Int> = []
     @State var metidasImpar: Set<Int> = []
 
-    // Scorer por bola (SIEMPRE se asigna a alguien del equipo dueño de esa bola)
+    // Scorer por bola (solo si fue válida para el tirador)
     @State var scorerPorBola: [Int: String] = [:]
 
     // Picker bolas (para el "+" del jugador en turno)
@@ -41,12 +41,7 @@ struct ScoresView: View {
     // ✅ Alternancia de “Nueva Partida”
     @State private var empiezaPartidaActual: TipoEquipo? = nil
 
-    // ✅ Para que los puntos individuales SIEMPRE cuadren con el total de equipo:
-    // guardamos el último jugador que “jugó” por cada equipo.
-    @State private var ultimoJugadorPar: String? = nil
-    @State private var ultimoJugadorImpar: String? = nil
-
-    // Troneras (siglas)
+    // Troneras (siglas) — FIX #2 (orden y nombres)
     let troneraSiglas: [Int: String] = [
         1: "EDFr",
         2: "CFr",
@@ -125,22 +120,6 @@ struct ScoresView: View {
         // ✅ Sin toolbar “Nueva/Finalizar”
         .toolbar { }
 
-        // ✅ Mantener “últimos jugadores” por equipo (para asignar puntos siempre)
-        .onAppear {
-            resetPuntajesSolo()
-
-            // fija quién empezó (para Nueva Partida alternada)
-            if empiezaPartidaActual == nil {
-                empiezaPartidaActual = turnos.turnoActual.tipo
-            }
-
-            // inicializa los últimos jugadores
-            actualizarUltimoJugadorSegunTurno()
-        }
-        .onChange(of: turnos.turnoActual) { _, _ in
-            actualizarUltimoJugadorSegunTurno()
-        }
-
         // Sheets
         .onChange(of: mostrarPickerBola) { _, showing in
             if showing { pickerTipoSeleccionado = turnos.turnoActual.tipo }
@@ -182,6 +161,13 @@ struct ScoresView: View {
                     }
             }
             .interactiveDismissDisabled(true)
+        }
+
+        .onAppear {
+            resetPuntajesSolo()
+            if empiezaPartidaActual == nil {
+                empiezaPartidaActual = turnos.turnoActual.tipo
+            }
         }
     }
 }
@@ -426,7 +412,7 @@ extension ScoresView {
             if !juegoFinalizado {
                 Divider().padding(.top, 2)
 
-                // ✅ Siempre visible
+                // ✅ Siempre visible: 8 adelantada
                 Button { registrarBola8Adelantada() } label: {
                     HStack(spacing: 8) {
                         Circle()
@@ -562,12 +548,11 @@ extension ScoresView {
                         .frame(width: 22, alignment: .trailing)
 
                     if enTurno {
+                        // ✅ FIX: sin DispatchQueue.main.async (evita desync de picker)
                         Button {
-                            DispatchQueue.main.async {
-                                pickerTipoSeleccionado = turnos.turnoActual.tipo
-                                pickerSheetID = UUID()
-                                mostrarPickerBola = true
-                            }
+                            pickerTipoSeleccionado = turnos.turnoActual.tipo
+                            pickerSheetID = UUID()
+                            mostrarPickerBola = true
                         } label: {
                             Image(systemName: "plus.circle.fill")
                                 .font(.title3)
@@ -686,15 +671,6 @@ extension ScoresView {
         }
     }
 
-    // ✅ Devuelve un scorer “por defecto” DEL MISMO EQUIPO de la bola
-    private func scorerDefaultDelEquipo(_ tipo: TipoEquipo) -> String? {
-        if tipo == .par {
-            return ultimoJugadorPar ?? primerJugadorDelTipo(.par)
-        } else {
-            return ultimoJugadorImpar ?? primerJugadorDelTipo(.impar)
-        }
-    }
-
     func registrarBola(numero: Int) {
         guard !juegoFinalizado else { return }
 
@@ -711,22 +687,10 @@ extension ScoresView {
         let anotoValida = (tipoBola == tipoTurno)
         let fueFalta = !anotoValida
 
-        // marcar bola en el equipo correspondiente
         if tipoBola == .par { metidasPar.insert(numero) } else { metidasImpar.insert(numero) }
 
-        // ✅ CLAVE DEL FIX:
-        // Esta bola SIEMPRE suma al equipo de esa bola, así que el punto individual
-        // debe asignarse a un jugador de ESE MISMO equipo (para que cuadre).
-        let scorer: String? = {
-            if tipoBola == tipoTurno {
-                return turnos.turnoActual.jugadorNombre
-            } else {
-                return scorerDefaultDelEquipo(tipoBola) ?? turnos.turnoActual.jugadorNombre
-            }
-        }()
-
-        if let scorer {
-            scorerPorBola[numero] = scorer
+        if anotoValida {
+            scorerPorBola[numero] = turnos.turnoActual.jugadorNombre
         }
 
         sincronizarTotales()
@@ -748,16 +712,14 @@ extension ScoresView {
     }
 
     func totalFinal(_ tipo: TipoEquipo) -> Int {
-        if juegoFinalizado, let ganador = ganadorPor8 {
-            if ganador == tipo { return 8 }
-            return totalBolas(tipo)
-        }
+        // Siempre mostramos el total REAL de bolas metidas.
+        // Si la partida termina por 8 adelantada o tronera incorrecta, el ganador puede tener < 8 y está bien.
         return totalBolas(tipo)
     }
 
+
     func sincronizarTotales() {
 
-        // reset totales e individuales
         for i in equipos.indices {
             equipos[i].puntajeActual = 0
             if equipos[i].puntajeIndividual.count != equipos[i].jugadores.count {
@@ -767,13 +729,11 @@ extension ScoresView {
             }
         }
 
-        // totales por equipo (por bolas metidas)
         for i in equipos.indices {
             let tipo = equipos[i].tipo
             equipos[i].puntajeActual = (juegoFinalizado ? totalFinal(tipo) : totalBolas(tipo))
         }
 
-        // individuales: sumar 1 por cada bola con scorer
         for (_, scorer) in scorerPorBola {
             if let (eIdx, jIdx) = encontrarJugador(scorer) {
                 asegurarTamanosIndividual(enEquipo: eIdx)
@@ -781,24 +741,14 @@ extension ScoresView {
             }
         }
 
-        // ✅ Punto de la bola 8:
-        // - si ganó bien: va al bola8ScorerNombre
-        // - si ganó el rival por falta (8 adelantada / tronera incorrecta):
-        //   igual acreditamos el “punto 8” a un jugador del equipo ganador para que cuadre.
-        if juegoFinalizado, let ganador = ganadorPor8 {
-
-            let scorer8: String? = {
-                if !bola8FueAdelantada && !bola8FueIncorrecta {
-                    return bola8ScorerNombre
-                } else {
-                    return scorerDefaultDelEquipo(ganador)
-                }
-            }()
-
-            if let scorer8,
-               let (eIdx, jIdx) = encontrarJugador(scorer8),
-               equipos[eIdx].tipo == ganador
-            {
+        if juegoFinalizado,
+           let ganador = ganadorPor8,
+           let scorer8 = bola8ScorerNombre,
+           !bola8FueAdelantada,
+           !bola8FueIncorrecta
+        {
+            if let (eIdx, jIdx) = encontrarJugador(scorer8),
+               equipos[eIdx].tipo == ganador {
                 asegurarTamanosIndividual(enEquipo: eIdx)
                 equipos[eIdx].puntajeIndividual[jIdx] += 1
             }
@@ -845,17 +795,6 @@ extension ScoresView {
     func asegurarTamanosIndividual(enEquipo idx: Int) {
         if equipos[idx].puntajeIndividual.count != equipos[idx].jugadores.count {
             equipos[idx].puntajeIndividual = Array(repeating: 0, count: equipos[idx].jugadores.count)
-        }
-    }
-
-    // ✅ actualiza “últimos jugadores” por equipo
-    private func actualizarUltimoJugadorSegunTurno() {
-        let tipo = turnos.turnoActual.tipo
-        let nombre = turnos.turnoActual.jugadorNombre
-        if tipo == .par {
-            ultimoJugadorPar = nombre
-        } else {
-            ultimoJugadorImpar = nombre
         }
     }
 }
@@ -1026,7 +965,7 @@ struct PantallaFinalPartida: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // ✅ Fondo opaco (evita “superposición transparente”)
+                // ✅ FIX: fondo opaco (evita “superposición transparente”)
                 Color(.systemBackground).ignoresSafeArea()
 
                 VStack(spacing: 12) {
