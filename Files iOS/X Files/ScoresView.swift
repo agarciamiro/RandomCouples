@@ -18,10 +18,14 @@ struct ScoresView: View {
     // Scorer por bola (solo si fue válida para el tirador)
     @State var scorerPorBola: [Int: String] = [:]
 
-    // Picker bolas (para el "+" del jugador en turno)
-    @State var mostrarPickerBola = false
-    @State var pickerTipoSeleccionado: TipoEquipo = .par
-    @State private var pickerSheetID = UUID()
+    // ✅ Sheet bolas “a prueba de desync”
+    private struct PickerBolaPayload: Identifiable {
+        let id = UUID()
+        let tipoTurno: TipoEquipo
+        let jugadorNombre: String
+        let equipoNumero: Int
+    }
+    @State private var pickerPayload: PickerBolaPayload? = nil
 
     // Bola 8
     @State var mostrarSheetBola8 = false
@@ -41,7 +45,7 @@ struct ScoresView: View {
     // ✅ Alternancia de “Nueva Partida”
     @State private var empiezaPartidaActual: TipoEquipo? = nil
 
-    // Troneras (siglas) — FIX #2 (orden y nombres)
+    // Troneras (siglas)
     let troneraSiglas: [Int: String] = [
         1: "EDFr",
         2: "CFr",
@@ -117,16 +121,27 @@ struct ScoresView: View {
         .navigationBarBackButtonHidden(true)
         .disableSwipeBack()
 
-        // ✅ Sin toolbar “Nueva/Finalizar”
+        // ✅ Sin toolbar
         .toolbar { }
 
-        // Sheets
-        .onChange(of: mostrarPickerBola) { _, showing in
-            if showing { pickerTipoSeleccionado = turnos.turnoActual.tipo }
+        // ✅ Sheet bolas “congelando el turno”
+        .sheet(item: $pickerPayload) { payload in
+            PickerBolaSheetView(
+                tipoInicial: payload.tipoTurno,
+                tituloTurno: "\(payload.tipoTurno.titulo) — \(payload.jugadorNombre)",
+                bolasPar: bolasPar,
+                bolasImpar: bolasImpar,
+                metidasPar: metidasPar,
+                metidasImpar: metidasImpar,
+                onRegistrar: { n in
+                    registrarBola(numero: n)
+                    pickerPayload = nil
+                },
+                onCerrar: { pickerPayload = nil }
+            )
         }
-        .sheet(isPresented: $mostrarPickerBola) {
-            pickerBolaSheet.id(pickerSheetID)
-        }
+
+        // Bola 8
         .sheet(isPresented: $mostrarSheetBola8) { bola8Sheet }
 
         // ✅ Pantalla final con SOLO 2 botones
@@ -191,7 +206,7 @@ extension ScoresView {
         equiposOrdenadosParaVista.map { $0.1 }
     }
 
-    // ✅ Banner centrado (mismo tamaño)
+    // ✅ Banner centrado
     var bannerEstadoPartida: some View {
         Text(juegoFinalizado ? textoBannerFinal : textoBannerVivo)
             .font(.footnote.bold())
@@ -218,7 +233,6 @@ extension ScoresView {
         return "VA GANANDO IMPAR — \(i) BOLAS"
     }
 
-    // ✅ Final: ganador arriba, perdedor abajo
     var textoBannerFinal: String {
         guard let ganador = ganadorPor8 else { return "—" }
         let perdedor: TipoEquipo = (ganador == .par) ? .impar : .par
@@ -238,7 +252,6 @@ extension ScoresView {
         return "🏆 GANÓ EQUIPO \(g) (\(tg))\(motivo)\nPERDIÓ EQUIPO \(p) (\(tp))"
     }
 
-    // Orden jugadores: muestra 4, y desde ahí scroll interno
     var cardOrdenJugadoresCompacto: some View {
 
         let visibles = Array(ordenJugadores.prefix(4))
@@ -412,7 +425,6 @@ extension ScoresView {
             if !juegoFinalizado {
                 Divider().padding(.top, 2)
 
-                // ✅ Siempre visible: 8 adelantada
                 Button { registrarBola8Adelantada() } label: {
                     HStack(spacing: 8) {
                         Circle()
@@ -512,6 +524,14 @@ extension ScoresView {
         nombre == turnos.turnoActual.jugadorNombre
     }
 
+    private func abrirPickerDesdeTurnoActual() {
+        pickerPayload = PickerBolaPayload(
+            tipoTurno: turnos.turnoActual.tipo,
+            jugadorNombre: turnos.turnoActual.jugadorNombre,
+            equipoNumero: turnos.turnoActual.equipoNumero
+        )
+    }
+
     func tarjetaEquipo(_ equipo: Binding<Equipo>) -> some View {
         let color: Color = (equipo.wrappedValue.tipo == .par) ? .blue : .red
 
@@ -548,12 +568,7 @@ extension ScoresView {
                         .frame(width: 22, alignment: .trailing)
 
                     if enTurno {
-                        // ✅ FIX: sin DispatchQueue.main.async (evita desync de picker)
-                        Button {
-                            pickerTipoSeleccionado = turnos.turnoActual.tipo
-                            pickerSheetID = UUID()
-                            mostrarPickerBola = true
-                        } label: {
+                        Button { abrirPickerDesdeTurnoActual() } label: {
                             Image(systemName: "plus.circle.fill")
                                 .font(.title3)
                                 .foregroundColor(.green)
@@ -613,61 +628,94 @@ extension ScoresView {
 // MARK: - Picker / Registrar / Totales / Reset
 extension ScoresView {
 
-    var pickerBolaSheet: some View {
-        NavigationStack {
-            VStack(spacing: 10) {
+    private struct PickerBolaSheetView: View {
+        let tipoInicial: TipoEquipo
+        let tituloTurno: String
 
-                Text("Anotar bola metida")
-                    .font(.footnote.bold())
-                    .padding(.top, 6)
+        let bolasPar: [Int]
+        let bolasImpar: [Int]
+        let metidasPar: Set<Int>
+        let metidasImpar: Set<Int>
 
-                Picker("", selection: $pickerTipoSeleccionado) {
-                    Text("PAR").tag(TipoEquipo.par)
-                    Text("IMPAR").tag(TipoEquipo.impar)
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal)
+        let onRegistrar: (Int) -> Void
+        let onCerrar: () -> Void
 
-                ScrollView {
-                    let bolas = (pickerTipoSeleccionado == .par) ? bolasPar : bolasImpar
-                    let metidas = (pickerTipoSeleccionado == .par) ? metidasPar : metidasImpar
-                    let disponibles = bolas.filter { !metidas.contains($0) }
+        @State private var tipoSeleccionado: TipoEquipo
 
-                    LazyVGrid(
-                        columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())],
-                        spacing: 10
-                    ) {
-                        ForEach(disponibles, id: \.self) { n in
-                            Button {
-                                registrarBola(numero: n)
-                                mostrarPickerBola = false
-                            } label: {
-                                Circle()
-                                    .fill((pickerTipoSeleccionado == .par ? Color.blue : Color.red).opacity(0.92))
-                                    .frame(width: 44, height: 44)
-                                    .overlay(Text("\(n)").font(.headline.bold()).foregroundColor(.white))
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(.horizontal)
-                    .padding(.top, 6)
-                }
-
-                Button("Cerrar") { mostrarPickerBola = false }
-                    .font(.footnote.bold())
-                    .padding(.vertical, 10)
-                    .frame(maxWidth: .infinity)
-                    .background(Color.gray.opacity(0.18))
-                    .cornerRadius(12)
-                    .padding(.horizontal)
-                    .padding(.bottom, 8)
-            }
+        init(
+            tipoInicial: TipoEquipo,
+            tituloTurno: String,
+            bolasPar: [Int],
+            bolasImpar: [Int],
+            metidasPar: Set<Int>,
+            metidasImpar: Set<Int>,
+            onRegistrar: @escaping (Int) -> Void,
+            onCerrar: @escaping () -> Void
+        ) {
+            self.tipoInicial = tipoInicial
+            self.tituloTurno = tituloTurno
+            self.bolasPar = bolasPar
+            self.bolasImpar = bolasImpar
+            self.metidasPar = metidasPar
+            self.metidasImpar = metidasImpar
+            self.onRegistrar = onRegistrar
+            self.onCerrar = onCerrar
+            _tipoSeleccionado = State(initialValue: tipoInicial)
         }
-        .presentationDetents(Set<PresentationDetent>([.medium, .large]))
-        .onAppear { pickerTipoSeleccionado = turnos.turnoActual.tipo }
-        .onChange(of: turnos.turnoActual) { _, _ in
-            pickerTipoSeleccionado = turnos.turnoActual.tipo
+
+        var body: some View {
+            NavigationStack {
+                VStack(spacing: 10) {
+
+                    Text("Anotar bola metida")
+                        .font(.footnote.bold())
+                        .padding(.top, 6)
+
+                    Text("Turno: \(tituloTurno)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    Picker("", selection: $tipoSeleccionado) {
+                        Text("PAR").tag(TipoEquipo.par)
+                        Text("IMPAR").tag(TipoEquipo.impar)
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal)
+
+                    ScrollView {
+                        let bolas = (tipoSeleccionado == .par) ? bolasPar : bolasImpar
+                        let metidas = (tipoSeleccionado == .par) ? metidasPar : metidasImpar
+                        let disponibles = bolas.filter { !metidas.contains($0) }
+
+                        LazyVGrid(
+                            columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())],
+                            spacing: 10
+                        ) {
+                            ForEach(disponibles, id: \.self) { n in
+                                Button { onRegistrar(n) } label: {
+                                    Circle()
+                                        .fill((tipoSeleccionado == .par ? Color.blue : Color.red).opacity(0.92))
+                                        .frame(width: 44, height: 44)
+                                        .overlay(Text("\(n)").font(.headline.bold()).foregroundColor(.white))
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.horizontal)
+                        .padding(.top, 6)
+                    }
+
+                    Button("Cerrar") { onCerrar() }
+                        .font(.footnote.bold())
+                        .padding(.vertical, 10)
+                        .frame(maxWidth: .infinity)
+                        .background(Color.gray.opacity(0.18))
+                        .cornerRadius(12)
+                        .padding(.horizontal)
+                        .padding(.bottom, 8)
+                }
+            }
+            .presentationDetents(Set<PresentationDetent>([.medium, .large]))
         }
     }
 
@@ -712,11 +760,17 @@ extension ScoresView {
     }
 
     func totalFinal(_ tipo: TipoEquipo) -> Int {
-        // Siempre mostramos el total REAL de bolas metidas.
-        // Si la partida termina por 8 adelantada o tronera incorrecta, el ganador puede tener < 8 y está bien.
+        // ✅ Si ganó “limpio” metiendo la 8 correctamente, el ganador muestra 8 (7 + la 8).
+        if juegoFinalizado,
+           !bola8FueAdelantada,
+           !bola8FueIncorrecta,
+           ganadorPor8 == tipo
+        {
+            return totalBolas(tipo) + 1
+        }
+        // ✅ Si ganó por 8 adelantada / tronera incorrecta, el total real puede ser <8.
         return totalBolas(tipo)
     }
-
 
     func sincronizarTotales() {
 
@@ -965,7 +1019,6 @@ struct PantallaFinalPartida: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // ✅ FIX: fondo opaco (evita “superposición transparente”)
                 Color(.systemBackground).ignoresSafeArea()
 
                 VStack(spacing: 12) {
