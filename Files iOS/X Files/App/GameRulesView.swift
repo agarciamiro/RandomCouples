@@ -8,8 +8,10 @@ struct GameRulesView: View {
     var body: some View {
         VStack {
             if let pdfName = game.rulesPDFName,
-               let url = Bundle.main.url(forResource: pdfName, withExtension: "pdf") {
+               let url = findPDF(named: pdfName) {
+
                 PDFKitView(url: url)
+
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
@@ -24,6 +26,24 @@ struct GameRulesView: View {
         }
         .navigationTitle("Reglas")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func findPDF(named name: String) -> URL? {
+        // 1) intento normal (raíz del bundle)
+        if let u = Bundle.main.url(forResource: name, withExtension: "pdf") {
+            return u
+        }
+
+        // 2) búsqueda recursiva (funciona aunque esté en subcarpetas)
+        guard let bundleURL = Bundle.main.resourceURL else { return nil }
+        if let enumerator = FileManager.default.enumerator(at: bundleURL, includingPropertiesForKeys: nil) {
+            for case let fileURL as URL in enumerator {
+                if fileURL.lastPathComponent == "\(name).pdf" {
+                    return fileURL
+                }
+            }
+        }
+        return nil
     }
 }
 
