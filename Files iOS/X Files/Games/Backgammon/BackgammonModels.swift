@@ -1,126 +1,204 @@
+import SwiftUI
 import Foundation
 
 // MARK: - Tipos base
 
-enum BGSide: String, Codable, Equatable {
-    case player1
-    case player2
-}
-
-enum BGColor: String, Codable, Equatable {
+enum BGColor: String, CaseIterable, Identifiable, Codable {
     case white
     case black
+
+    var id: String { rawValue }
+    var titulo: String { self == .white ? "BLANCAS" : "NEGRAS" }
+
+    var uiColor: Color {
+        switch self {
+        case .white: return .white
+        case .black: return .black
+        }
+    }
 }
 
-// MARK: - Configuración
+enum BGSide: Int, CaseIterable, Identifiable, Codable {
+    case player1 = 1
+    case player2 = 2
+
+    var id: Int { rawValue }
+    var titulo: String { self == .player1 ? "Jugador 1" : "Jugador 2" }
+    var opponent: BGSide { self == .player1 ? .player2 : .player1 }
+}
+
+// MARK: - Config (BackgammonMode viene de BackgammonMode.swift)
 
 struct BackgammonConfig: Equatable, Codable {
+    var mode: BackgammonMode = .twoPlayersDice
+    var homeSide: BGSide = .player1
 
-    enum Mode: String, Codable, Equatable {
-        case vsCPU
-        case twoPlayersAdvisorBoth
-        case twoPlayersAdvisorHome
-    }
-
-    var mode: Mode
-    var homeSide: BGSide
-
-    init(mode: Mode = .twoPlayersAdvisorBoth, homeSide: BGSide = .player1) {
+    init(mode: BackgammonMode = .twoPlayersDice, homeSide: BGSide = .player1) {
         self.mode = mode
         self.homeSide = homeSide
     }
+
+    // Codable manual por si BackgammonMode NO es Codable
+    enum CodingKeys: String, CodingKey { case mode, homeSide }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let modeKey = try c.decodeIfPresent(String.self, forKey: .mode) ?? "twoPlayersDice"
+        self.mode = BackgammonMode.fromStorage(modeKey)
+        self.homeSide = try c.decodeIfPresent(BGSide.self, forKey: .homeSide) ?? .player1
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(mode.storageKey, forKey: .mode)
+        try c.encode(homeSide, forKey: .homeSide)
+    }
 }
 
-// MARK: - Jugadores
+private extension BackgammonMode {
+    var storageKey: String {
+        switch self {
+        case .twoPlayersDice: return "twoPlayersDice"
+        default: return "twoPlayersDice"
+        }
+    }
+
+    static func fromStorage(_ key: String) -> BackgammonMode {
+        switch key {
+        case "twoPlayersDice": return .twoPlayersDice
+        default: return .twoPlayersDice
+        }
+    }
+}
+
+// MARK: - Players
 
 struct BackgammonPlayers: Equatable, Codable {
     var p1: String
     var p2: String
 
-    init(p1: String, p2: String) {
+    init(p1: String = "Jugador 1", p2: String = "Jugador 2") {
         self.p1 = p1
         self.p2 = p2
     }
 }
 
-// MARK: - Asignaciones (LEGACY / compat)
+// MARK: - Assignment (tu GameView usa assignment.p1Color/p2Color y color(of:))
 
-/// Tipo “amplio” para compatibilidad con pantallas antiguas.
-/// En el flujo nuevo, normalmente usas BackgammonColorAssignment + BackgammonStartDiceResult.
 struct BackgammonAssignment: Equatable, Codable {
-    var colors: BackgammonColorAssignment
-    var homeSide: BGSide
+    var p1Color: BGColor
+    var p2Color: BGColor
 
-    init(colors: BackgammonColorAssignment, homeSide: BGSide = .player1) {
-        self.colors = colors
-        self.homeSide = homeSide
+    static let `default` = BackgammonAssignment(p1Color: .white, p2Color: .black)
+
+    init(p1Color: BGColor, p2Color: BGColor) {
+        self.p1Color = p1Color
+        self.p2Color = p2Color
     }
 
-    // Compat: por si en algún lado guardabas white/black directo
-    var whitePlayer: String { colors.whitePlayer }
-    var blackPlayer: String { colors.blackPlayer }
-}
-
-// MARK: - Opening (LEGACY / compat)
-
-struct BackgammonOpening: Equatable, Codable {
-    var starter: BGSide
-    var openingDice: [Int]
-    var tieMultiplier: Int
-
-    init(starter: BGSide, openingDice: [Int], tieMultiplier: Int) {
-        self.starter = starter
-        self.openingDice = openingDice
-        self.tieMultiplier = tieMultiplier
+    // compat
+    init(player1: BGColor, player2: BGColor) {
+        self.p1Color = player1
+        self.p2Color = player2
     }
+
+    func color(for side: BGSide) -> BGColor { side == .player1 ? p1Color : p2Color }
+    func color(of side: BGSide) -> BGColor { color(for: side) } // <- arregla "have 'of:' expected 'for:'"
 }
 
-// MARK: - Modelos usados por el flujo nuevo (colores + dado de inicio)
+// MARK: - ColorAssignment (tu DiceRouletteView usa blackPlayer/whitePlayer)
 
 struct BackgammonColorAssignment: Equatable, Codable {
-    var whitePlayer: String
-    var blackPlayer: String
+    var blackSide: BGSide
+    var whiteSide: BGSide
 
-    // Orden “normal”
-    init(whitePlayer: String, blackPlayer: String) {
-        self.whitePlayer = whitePlayer
+    var blackPlayer: String
+    var whitePlayer: String
+
+    init(blackSide: BGSide, whiteSide: BGSide, blackPlayer: String, whitePlayer: String) {
+        self.blackSide = blackSide
+        self.whiteSide = whiteSide
         self.blackPlayer = blackPlayer
+        self.whitePlayer = whitePlayer
     }
 
-    // Compatibilidad por si alguien lo llama al revés
-    init(blackPlayer: String, whitePlayer: String) {
-        self.whitePlayer = whitePlayer
-        self.blackPlayer = blackPlayer
+    init(players: BackgammonPlayers, assignment: BackgammonAssignment) {
+        if assignment.p1Color == .black {
+            self.blackSide = .player1
+            self.whiteSide = .player2
+            self.blackPlayer = players.p1
+            self.whitePlayer = players.p2
+        } else {
+            self.blackSide = .player2
+            self.whiteSide = .player1
+            self.blackPlayer = players.p2
+            self.whitePlayer = players.p1
+        }
     }
 }
 
+// MARK: - StartDiceResult (tu BoardView necesita starterIsBlack/startMajor/startMinor)
+
 struct BackgammonStartDiceResult: Equatable, Codable {
-    var blackPlayer: String
-    var whitePlayer: String
-    var blackDie: Int
-    var whiteDie: Int
-    var tieCount: Int
+    /// Semántica: die1 = dado de NEGRAS, die2 = dado de BLANCAS
+    let die1: Int
+    let die2: Int
 
-    // Orden “normal” (como lo tienes tú)
-    init(blackPlayer: String, whitePlayer: String, blackDie: Int, whiteDie: Int, tieCount: Int) {
-        self.blackPlayer = blackPlayer
-        self.whitePlayer = whitePlayer
-        self.blackDie = blackDie
-        self.whiteDie = whiteDie
-        self.tieCount = tieCount
+    /// Cuántos empates hubo antes de resolver
+    let tieCount: Int
+
+    init(blackDie: Int, whiteDie: Int, tieCount: Int = 0) {
+        self.die1 = BackgammonStartDiceResult.clamp(blackDie)
+        self.die2 = BackgammonStartDiceResult.clamp(whiteDie)
+        self.tieCount = max(0, tieCount)
     }
 
-    // Compatibilidad por si en algún archivo lo llamaban con white primero
-    init(whitePlayer: String, blackPlayer: String, whiteDie: Int, blackDie: Int, tieCount: Int) {
-        self.blackPlayer = blackPlayer
-        self.whitePlayer = whitePlayer
-        self.blackDie = blackDie
-        self.whiteDie = whiteDie
-        self.tieCount = tieCount
+    // Compat por si en algún lado lo creas distinto
+    init(die1: Int, die2: Int, starts: BGSide) {
+        self.die1 = BackgammonStartDiceResult.clamp(die1)
+        self.die2 = BackgammonStartDiceResult.clamp(die2)
+        self.tieCount = 0
     }
 
-    var starterIsBlack: Bool { blackDie > whiteDie }
-    var starterName: String { starterIsBlack ? blackPlayer : whitePlayer }
-    var startMajor: Int { max(blackDie, whiteDie) }
-    var startMinor: Int { min(blackDie, whiteDie) }
+    var starterIsBlack: Bool { die1 > die2 }
+    var startMajor: Int { max(die1, die2) }
+    var startMinor: Int { min(die1, die2) }
+
+    private static func clamp(_ v: Int) -> Int { min(max(v, 1), 6) }
+}
+
+// MARK: - Opening (tu GameView/FirstRollView necesitan starter/openingDice/tieMultiplier)
+
+struct BackgammonOpening: Equatable, Codable {
+    var config: BackgammonConfig
+    var players: BackgammonPlayers
+    var assignment: BackgammonAssignment
+    var colors: BackgammonColorAssignment
+    var startResult: BackgammonStartDiceResult
+
+    init(config: BackgammonConfig,
+         players: BackgammonPlayers,
+         assignment: BackgammonAssignment,
+         startResult: BackgammonStartDiceResult) {
+        self.config = config
+        self.players = players
+        self.assignment = assignment
+        self.colors = BackgammonColorAssignment(players: players, assignment: assignment)
+        self.startResult = startResult
+    }
+
+    /// Quién empieza (player1/player2) según el ganador de la apertura (negras/blancas)
+    var starter: BGSide {
+        startResult.starterIsBlack ? colors.blackSide : colors.whiteSide
+    }
+
+    /// Dados de apertura ya listos como movimientos (mayor + menor)
+    var openingDice: [Int] {
+        [startResult.startMajor, startResult.startMinor]
+    }
+
+    /// Multiplicador por empates (1 si no hubo empates)
+    var tieMultiplier: Int {
+        max(1, startResult.tieCount + 1)
+    }
 }

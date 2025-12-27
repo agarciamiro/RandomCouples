@@ -1,202 +1,227 @@
 import SwiftUI
-import UIKit
+import Foundation
 
 struct BackgammonColorRouletteView: View {
 
     let player1Name: String
     let player2Name: String
+
+    /// Devuelve el assignment al padre
     let onContinue: (BackgammonColorAssignment) -> Void
 
-    @State private var assigned: BackgammonColorAssignment? = nil
-    @State private var spinning: Bool = false
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var spinning = false
     @State private var rotation: Double = 0
+    @State private var hasResult = false
+
+    /// true => player1 = NEGRAS, false => player2 = NEGRAS
+    @State private var p1IsBlack = true
+
+    // MARK: - Derived
+
+    private var assignment: BackgammonColorAssignment {
+        let black = p1IsBlack ? player1Name : player2Name
+        let white = p1IsBlack ? player2Name : player1Name
+
+        let blackSide: BGSide = p1IsBlack ? .player1 : .player2
+        let whiteSide: BGSide = p1IsBlack ? .player2 : .player1
+
+        // IMPORTANTÍSIMO:
+        // Si tu BackgammonColorAssignment está declarado con propiedades en este orden:
+        // blackSide, whiteSide, blackPlayer, whitePlayer
+        // el memberwise init "espera" esos labels primero.
+        return BackgammonColorAssignment(
+            blackSide: blackSide,
+            whiteSide: whiteSide,
+            blackPlayer: black,
+            whitePlayer: white
+        )
+    }
 
     var body: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 16) {
 
-            VStack(spacing: 6) {
-                Text("Ruleta de colores")
-                    .font(.title2.bold())
-                Text("Asigna BLANCAS y NEGRAS")
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
+            Text("Ruleta de colores")
+                .font(.title.bold())
+                .padding(.top, 8)
+
+            Text("Asigna BLANCAS y NEGRAS")
+                .font(.footnote)
+                .foregroundColor(.secondary)
+
+            // Wheel + pointer
+            ZStack(alignment: .top) {
+                BGColorWheel()
+                    .rotationEffect(.degrees(rotation))
+                    .shadow(color: .black.opacity(0.18), radius: 14, x: 0, y: 8)
+
+                BGColorPointer()
+                    .padding(.top, -6)
             }
-            .padding(.top, 12)
-
-            ZStack {
-                RuletaWheel(
-                    leftTitle: "BLANCAS",
-                    rightTitle: "NEGRAS",
-                    leftColor: Color.gray.opacity(0.22),
-                    rightColor: Color.black.opacity(0.90),
-                    rotation: rotation
-                )
-                .frame(width: 270, height: 270)
-
-                PointerTriangle()
-                    .fill(Color.orange.opacity(0.95))
-                    .frame(width: 28, height: 18)
-                    .offset(y: -146)
-
-                Circle()
-                    .fill(.ultraThinMaterial)
-                    .frame(width: 96, height: 96)
-                    .overlay(
-                        Button {
-                            guard assigned == nil else { return }
-                            spinAndAssign()
-                        } label: {
-                            VStack(spacing: 4) {
-                                Image(systemName: (assigned == nil) ? "dice" : "checkmark.seal.fill")
-                                    .font(.title2.weight(.semibold))
-                                Text((assigned == nil) ? "Girar" : "Listo")
-                                    .font(.headline)
-                            }
-                            .foregroundColor(.primary)
-                        }
-                        .disabled(assigned != nil || spinning)
-                    )
-                    .shadow(radius: 6, x: 0, y: 3)
-            }
+            .frame(width: 280, height: 280)
             .padding(.top, 6)
 
-            if let a = assigned {
-                VStack(spacing: 10) {
+            // Cards
+            VStack(spacing: 12) {
+                playerCard(
+                    name: assignment.blackPlayer,
+                    piece: "NEGRAS",
+                    dark: true
+                )
 
-                    // NEGRAS -> tarjeta gris clara, texto negro bold
-                    playerCard(
-                        name: a.blackPlayer.uppercased(),
-                        label: "NEGRAS",
-                        background: Color(.systemGray5),
-                        foreground: .black
-                    )
-
-                    // BLANCAS -> tarjeta negra, texto blanco bold
-                    playerCard(
-                        name: a.whitePlayer.uppercased(),
-                        label: "BLANCAS",
-                        background: Color.black.opacity(0.85),
-                        foreground: .white
-                    )
-                }
-                .padding(.top, 6)
-                .padding(.horizontal, 16)
-            } else {
-                Text("Toca “Girar” para asignar colores.")
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
-                    .padding(.top, 4)
+                playerCard(
+                    name: assignment.whitePlayer,
+                    piece: "BLANCAS",
+                    dark: false
+                )
             }
-
-            Spacer()
-
-            Button {
-                if let a = assigned { onContinue(a) }
-            } label: {
-                Text("Continuar")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-            }
-            .buttonStyle(.borderedProminent)
             .padding(.horizontal, 16)
-            .padding(.bottom, 14)
-            .disabled(assigned == nil)
+
+            Spacer(minLength: 6)
+
+            // Buttons
+            if !hasResult {
+                Button {
+                    spinOnce()
+                } label: {
+                    Text(spinning ? "Girando..." : "Girar")
+                        .font(.headline.bold())
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(spinning)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 10)
+            } else {
+                Button {
+                    onContinue(assignment)
+                    // si estás dentro de NavigationStack normalmente NO quieres dismiss aquí,
+                    // pero lo dejo como opción segura si la pantalla se presenta como sheet.
+                    // Si no quieres cerrar, comenta la línea:
+                    // dismiss()
+                } label: {
+                    Text("Continuar")
+                        .font(.headline.bold())
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                }
+                .buttonStyle(.borderedProminent)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 10)
+            }
         }
+        .navigationTitle("Backgammon")
+        .navigationBarTitleDisplayMode(.inline)
     }
 
-    private func playerCard(name: String, label: String, background: Color, foreground: Color) -> some View {
+    // MARK: - UI pieces
+
+    private func playerCard(name: String, piece: String, dark: Bool) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(name)
-                .font(.headline.bold())
-            Text(label)
+                .font(.headline)
+                .foregroundColor(dark ? .white : .black)
+
+            Text(piece)
                 .font(.title3.bold())
+                .foregroundColor(dark ? .white : .black)
         }
-        .foregroundColor(foreground)
+        .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, 14)
-        .padding(.horizontal, 14)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(background)
-        )
+        .background(dark ? Color.black.opacity(0.85) : Color.gray.opacity(0.20))
+        .cornerRadius(14)
     }
 
-    private func spinAndAssign() {
+    // MARK: - Logic
+
+    private func spinOnce() {
+        guard !spinning else { return }
         spinning = true
+        hasResult = false
 
-        let p1IsWhite = Bool.random()
-        let a = BackgammonColorAssignment(
-            whitePlayer: p1IsWhite ? player1Name : player2Name,
-            blackPlayer: p1IsWhite ? player2Name : player1Name
-        )
-
-        let extra = Double.random(in: 40...320)
-        let target = rotation + 720 + extra
+        // Animación de ruleta (solo visual)
+        let extraTurns = Double(Int.random(in: 3...6)) * 360
+        let randomAngle = Double.random(in: 0..<360)
 
         withAnimation(.easeOut(duration: 1.2)) {
-            rotation = target
+            rotation += extraTurns + randomAngle
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.15) {
-            assigned = a
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.25) {
+            // Resultado real (simple y robusto)
+            // Si quieres atarlo al ángulo final, lo hacemos después.
+            p1IsBlack = Bool.random()
+
             spinning = false
+            hasResult = true
         }
     }
 }
 
-// MARK: - Helpers
-private struct RuletaWheel: View {
-    let leftTitle: String
-    let rightTitle: String
-    let leftColor: Color
-    let rightColor: Color
-    let rotation: Double
+// MARK: - Wheel (colores)
 
+private struct BGColorWheel: View {
     var body: some View {
         ZStack {
+            // Mitad NEGRAS
             Circle()
-                .fill(Color.clear)
-                .overlay(RuletaHalf(color: leftColor).rotationEffect(.degrees(180)))
-                .overlay(RuletaHalf(color: rightColor))
-                .clipShape(Circle())
-                .overlay(Circle().stroke(Color.black.opacity(0.12), lineWidth: 1))
-                .shadow(radius: 10, x: 0, y: 6)
+                .trim(from: 0.0, to: 0.5)
+                .rotation(.degrees(-90))
+                .fill(Color.black.opacity(0.88))
 
-            Text(leftTitle)
-                .font(.system(size: 14, weight: .bold))
+            // Mitad BLANCAS (gris suave)
+            Circle()
+                .trim(from: 0.5, to: 1.0)
+                .rotation(.degrees(-90))
+                .fill(Color.gray.opacity(0.30))
+
+            Circle()
+                .stroke(Color.black.opacity(0.08), lineWidth: 2)
+
+            // Textos
+            Text("NEGRAS")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(.white)
+                .rotationEffect(.degrees(25))
+                .offset(x: 76, y: -32)
+
+            Text("BLANCAS")
+                .font(.system(size: 18, weight: .bold))
                 .foregroundColor(.black.opacity(0.75))
-                .rotationEffect(.degrees(-90))
-                .offset(x: -94)
+                .rotationEffect(.degrees(-155))
+                .offset(x: -70, y: 36)
 
-            Text(rightTitle)
-                .font(.system(size: 14, weight: .bold))
-                .foregroundColor(.white.opacity(0.92))
-                .rotationEffect(.degrees(90))
-                .offset(x: 94)
-        }
-        .rotationEffect(.degrees(rotation))
-    }
-}
+            // Centro
+            Circle()
+                .fill(.ultraThinMaterial)
+                .frame(width: 110, height: 110)
+                .shadow(color: .black.opacity(0.12), radius: 10, x: 0, y: 6)
 
-private struct RuletaHalf: View {
-    let color: Color
-    var body: some View {
-        GeometryReader { geo in
-            Path { p in
-                let rect = geo.frame(in: .local)
-                let center = CGPoint(x: rect.midX, y: rect.midY)
-                let radius = min(rect.width, rect.height) / 2
-                p.move(to: center)
-                p.addArc(center: center, radius: radius, startAngle: .degrees(-90), endAngle: .degrees(90), clockwise: false)
-                p.closeSubpath()
+            VStack(spacing: 6) {
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.system(size: 24))
+                Text("Listo")
+                    .font(.headline)
             }
-            .fill(color)
+            .foregroundColor(.primary)
         }
     }
 }
 
-private struct PointerTriangle: Shape {
+// MARK: - Pointer (renombrado para evitar redeclarations)
+
+private struct BGColorPointer: View {
+    var body: some View {
+        BGColorTriangle()
+            .fill(Color.orange.opacity(0.95))
+            .frame(width: 20, height: 16)
+            .shadow(color: .black.opacity(0.18), radius: 6, x: 0, y: 4)
+    }
+}
+
+private struct BGColorTriangle: Shape {
     func path(in rect: CGRect) -> Path {
         var p = Path()
         p.move(to: CGPoint(x: rect.midX, y: rect.minY))

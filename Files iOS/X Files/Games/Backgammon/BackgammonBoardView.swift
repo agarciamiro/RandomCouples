@@ -1,40 +1,35 @@
 import SwiftUI
-import Foundation
-
-// MARK: - BackgammonBoardView
 
 struct BackgammonBoardView: View {
 
-    // Lo que ya tienes en tu proyecto (porque viene de las ruletas)
+    // Modelos “UI” que ahora ya existen en BackgammonModels.swift
     private let colors: BackgammonColorAssignment
-    private let start: BackgammonStartDiceResult
+    private let startResult: BackgammonStartDiceResult
 
     @Environment(\.dismiss) private var dismiss
 
-    // Turno / dados / jugador actual
+    // Turno / dados
     @State private var turnNumber: Int
-    @State private var currentPiece: Piece
+    @State private var current: BGPiece
     @State private var die1: Int
     @State private var die2: Int
 
-    // Tablero (solo posiciones 1...24)
-    @State private var board: BackgammonBoard
+    // Tablero: 24 posiciones (1...24)
+    @State private var points: [Int: BGPointStack]
 
-    // MARK: - Inits (para que calce con tus llamadas actuales sin tocar nada)
+    // MARK: - Inits (compatibles con tus llamadas)
 
     init(colors: BackgammonColorAssignment, startResult: BackgammonStartDiceResult) {
         self.colors = colors
-        self.start = startResult
+        self.startResult = startResult
 
-        let starter: Piece = (startResult.blackDie > startResult.whiteDie) ? .black : .white
-        let major = max(startResult.blackDie, startResult.whiteDie)
-        let minor = min(startResult.blackDie, startResult.whiteDie)
-
+        let starter: BGPiece = startResult.starterIsBlack ? .black : .white
         _turnNumber = State(initialValue: 1)
-        _currentPiece = State(initialValue: starter)
-        _die1 = State(initialValue: major)
-        _die2 = State(initialValue: minor)
-        _board = State(initialValue: .standardSetup())
+        _current = State(initialValue: starter)
+        _die1 = State(initialValue: startResult.startMajor)
+        _die2 = State(initialValue: startResult.startMinor)
+
+        _points = State(initialValue: Self.standardSetup())
     }
 
     init(startResult: BackgammonStartDiceResult, colors: BackgammonColorAssignment) {
@@ -45,44 +40,30 @@ struct BackgammonBoardView: View {
         self.init(colors: colors, startResult: result)
     }
 
-    // MARK: - Body
+    // MARK: - UI
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 14) {
+        VStack(spacing: 0) {
 
-                // Banner azul
-                banner
-                    .padding(.horizontal, 16)
-                    .padding(.top, 10)
+            // Banner arriba (no “se sale”)
+            header
 
-                // Card header turno
-                turnHeaderCard
-                    .padding(.horizontal, 16)
+            Divider()
 
-                // Tablero
-                boardCard
-                    .padding(.horizontal, 16)
-
-                VStack(spacing: 6) {
-                    Text("Setup estándar cargado (sin movimientos aún).")
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
-
-                    Text("DEBUG: NEGRAS=\(colors.blackPlayer) · BLANCAS=\(colors.whitePlayer)")
-                        .font(.caption2)
-                        .foregroundColor(.secondary.opacity(0.9))
+            GeometryReader { geo in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    boardGrid(availableWidth: geo.size.width)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
                 }
-                .padding(.top, 6)
-                .padding(.bottom, 18)
             }
-        }
-        .navigationTitle("Tablero")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button("Cerrar") { dismiss() }
-            }
+
+            // Mensaje
+            Text("Setup estándar cargado (sin movimientos aún).")
+                .font(.footnote)
+                .foregroundColor(.secondary)
+                .padding(.bottom, 10)
+
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             Button {
@@ -91,277 +72,170 @@ struct BackgammonBoardView: View {
                 Text("Continuar (Siguiente turno)")
                     .font(.headline.bold())
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
+                    .padding(.vertical, 16)
             }
             .buttonStyle(.borderedProminent)
             .padding(.horizontal, 16)
-            .padding(.top, 10)
-            .padding(.bottom, 18)
+            .padding(.bottom, 12)
             .background(.ultraThinMaterial)
         }
-    }
-
-    // MARK: - UI Pieces
-
-    private var banner: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "squares.leading.rectangle")
-                .font(.headline)
-            Text("TABLERO (24 posiciones)")
-                .font(.subheadline.bold())
-            Spacer()
-        }
-        .foregroundColor(.white)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(Color.blue)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-    }
-
-    private var turnHeaderCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Turno \(turnNumber)")
-                .font(.title3.bold())
-
-            HStack(spacing: 10) {
-                Text("Juega:")
-                    .font(.headline)
-
-                piecePill(currentPiece)
+        .navigationTitle("Tablero")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button("Cerrar") { dismiss() }
             }
+        }
+    }
 
-            // ✅ mini-ayuda dirección
-            Text(directionHelpText)
-                .font(.footnote)
-                .foregroundColor(.secondary)
+    private var header: some View {
+        VStack(spacing: 10) {
+            Text("TABLERO (24 posiciones)")
+                .font(.headline)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
 
-            HStack(spacing: 10) {
-                diceBox(die1)
-                Text("+")
-                    .font(.title3.bold())
-                    .foregroundColor(.secondary)
-                diceBox(die2)
+            HStack(alignment: .center, spacing: 14) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Turno \(turnNumber)")
+                        .font(.title3.bold())
+
+                    Text("Juega:")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
 
                 Spacer()
 
-                if die1 == die2 {
-                    Text("DOBLES")
-                        .font(.caption.bold())
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Color.green.opacity(0.20))
-                        .foregroundColor(.primary)
-                        .clipShape(Capsule())
+                Text(current == .white ? "BLANCAS" : "NEGRAS")
+                    .font(.headline)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color(.systemGray5))
+                    .clipShape(Capsule())
+
+                HStack(spacing: 10) {
+                    diceBox("\(die1)")
+                    Text("+").font(.title3.bold()).foregroundColor(.secondary)
+                    diceBox("\(die2)")
                 }
             }
-            .padding(.top, 2)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 10)
         }
-        .padding(16)
-        .background(Color(.systemGray6))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .background(Color(.systemBackground))
     }
 
-    private func diceBox(_ value: Int) -> some View {
-        Text("\(value)")
-            .font(.title2.bold())
-            .frame(width: 56, height: 56)
-            .background(Color(.systemGray5))
-            .clipShape(RoundedRectangle(cornerRadius: 14))
+    private func diceBox(_ text: String) -> some View {
+        Text(text)
+            .font(.title3.bold())
+            .frame(width: 46, height: 46)
+            .background(Color(.systemGray6))
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
-    private func piecePill(_ piece: Piece) -> some View {
-        let label = (piece == .white) ? "BLANCAS" : "NEGRAS"
-        let bg = (piece == .white) ? Color.black.opacity(0.12) : Color.black.opacity(0.85)
-        let fg = (piece == .white) ? Color.primary : Color.white
+    // MARK: - Board grid (2 filas x 12)
 
-        return Text(label)
-            .font(.caption.bold())
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
-            .background(bg)
-            .foregroundColor(fg)
-            .clipShape(Capsule())
-    }
+    private func boardGrid(availableWidth: CGFloat) -> some View {
+        // 12 columnas; si no entra, el ScrollView horizontal lo resuelve.
+        let cellW: CGFloat = 60
+        let cellH: CGFloat = 54
+        let spacing: CGFloat = 10
 
-    private var boardCard: some View {
-        VStack(spacing: 12) {
-            GeometryReader { geo in
-                let totalWidth = geo.size.width
-                let spacing: CGFloat = 6
-                let slotWidth = floor((totalWidth - spacing * 11) / 12)
-
-                VStack(spacing: 14) {
-
-                    // Top row: 24 -> 13
-                    BoardRow(
-                        title: "24 → 13",
-                        points: Array(stride(from: 24, through: 13, by: -1)),
-                        slotWidth: slotWidth,
-                        spacing: spacing,
-                        board: board
-                    )
-
-                    // Bottom row: 12 -> 1
-                    BoardRow(
-                        title: "12 → 1",
-                        points: Array(stride(from: 12, through: 1, by: -1)),
-                        slotWidth: slotWidth,
-                        spacing: spacing,
-                        board: board
-                    )
+        return VStack(spacing: 16) {
+            // Arriba: 24 → 13
+            HStack(spacing: spacing) {
+                ForEach(Array(stride(from: 24, through: 13, by: -1)), id: \.self) { idx in
+                    pointCell(index: idx)
+                        .frame(width: cellW, height: cellH)
                 }
-                .frame(width: totalWidth)
             }
-            .frame(height: 220)
-        }
-        .padding(16)
-        .background(Color(.systemGray6))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-    }
 
-    // MARK: - Logic
-
-    private var directionHelpText: String {
-        if currentPiece == .white {
-            return "BLANCAS: 24 → 1"
-        } else {
-            return "NEGRAS: 1 → 24"
+            // Abajo: 12 → 1
+            HStack(spacing: spacing) {
+                ForEach(Array(stride(from: 12, through: 1, by: -1)), id: \.self) { idx in
+                    pointCell(index: idx)
+                        .frame(width: cellW, height: cellH)
+                }
+            }
         }
     }
+
+    private func pointCell(index: Int) -> some View {
+        let stack = points[index] ?? BGPointStack(piece: .none, count: 0)
+
+        return VStack(spacing: 6) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color(.systemGray6))
+
+                if stack.count == 0 || stack.piece == .none {
+                    Text("–")
+                        .font(.title3.bold())
+                        .foregroundColor(.secondary)
+                } else {
+                    ZStack {
+                        Circle()
+                            .fill(stack.piece == .black ? Color(.label) : Color(.systemBackground))
+                            .overlay(
+                                Circle().stroke(Color(.separator), lineWidth: 1)
+                            )
+
+                        Text("\(stack.count)")
+                            .font(.headline.bold())
+                            .foregroundColor(stack.piece == .black ? .white : .black)
+                    }
+                    .frame(width: 34, height: 34)
+                }
+            }
+
+            Text("\(index)")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+    }
+
+    // MARK: - Actions
 
     private func nextTurn() {
-        // (Por ahora solo rota turno + tira dados; la lógica de movimientos la vemos luego)
         turnNumber += 1
-        currentPiece = (currentPiece == .white) ? .black : .white
+        current = (current == .white) ? .black : .white
         die1 = Int.random(in: 1...6)
         die2 = Int.random(in: 1...6)
     }
-}
 
-// MARK: - BoardRow
+    // MARK: - Standard setup (Backgammon clásico)
 
-private struct BoardRow: View {
-    let title: String
-    let points: [Int]
-    let slotWidth: CGFloat
-    let spacing: CGFloat
-    let board: BackgammonBoard
+    private static func standardSetup() -> [Int: BGPointStack] {
+        var p: [Int: BGPointStack] = [:]
+        for i in 1...24 { p[i] = BGPointStack(piece: .none, count: 0) }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.headline)
-                .foregroundColor(.secondary)
+        // Blancas (white): 2 en 24, 5 en 13, 3 en 8, 5 en 6
+        p[24] = BGPointStack(piece: .white, count: 2)
+        p[13] = BGPointStack(piece: .white, count: 5)
+        p[8]  = BGPointStack(piece: .white, count: 3)
+        p[6]  = BGPointStack(piece: .white, count: 5)
 
-            HStack(spacing: spacing) {
-                ForEach(points, id: \.self) { p in
-                    PointSlot(
-                        point: p,
-                        slotWidth: slotWidth,
-                        content: board.content(at: p)
-                    )
-                }
-            }
+        // Negras (black): 2 en 1, 5 en 12, 3 en 17, 5 en 19
+        p[1]  = BGPointStack(piece: .black, count: 2)
+        p[12] = BGPointStack(piece: .black, count: 5)
+        p[17] = BGPointStack(piece: .black, count: 3)
+        p[19] = BGPointStack(piece: .black, count: 5)
 
-            HStack(spacing: spacing) {
-                ForEach(points, id: \.self) { p in
-                    Text("\(p)")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                        .frame(width: slotWidth)
-                }
-            }
-        }
+        return p
     }
 }
 
-// MARK: - PointSlot
+// MARK: - Helpers locales (evita conflictos con otros nombres del proyecto)
 
-private struct PointSlot: View {
-    struct Content {
-        var white: Int
-        var black: Int
-    }
-
-    let point: Int
-    let slotWidth: CGFloat
-    let content: Content
-
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(.systemGray5))
-                .frame(width: slotWidth, height: 44)
-
-            if content.white == 0 && content.black == 0 {
-                Text("–")
-                    .font(.headline)
-                    .foregroundColor(.secondary.opacity(0.7))
-            } else if content.white > 0 && content.black == 0 {
-                checkerBadge(count: content.white, piece: .white)
-            } else if content.black > 0 && content.white == 0 {
-                checkerBadge(count: content.black, piece: .black)
-            } else {
-                // caso raro (ambos en mismo punto): mostramos 2 badges
-                VStack(spacing: 4) {
-                    checkerBadge(count: content.black, piece: .black).scaleEffect(0.90)
-                    checkerBadge(count: content.white, piece: .white).scaleEffect(0.90)
-                }
-            }
-        }
-    }
-
-    private func checkerBadge(count: Int, piece: Piece) -> some View {
-        let bg: Color = (piece == .white) ? .white : .black
-        let fg: Color = (piece == .white) ? .black : .white
-
-        return Text("\(count)")
-            .font(.headline.bold())
-            .foregroundColor(fg)
-            .frame(width: 30, height: 30)
-            .background(bg)
-            .clipShape(Circle())
-            .overlay(
-                Circle().stroke(Color.black.opacity(piece == .white ? 0.18 : 0.05), lineWidth: 1)
-            )
-    }
-}
-
-// MARK: - Data model (simple)
-
-private enum Piece {
+private enum BGPiece {
+    case none
     case white
     case black
 }
 
-private struct BackgammonBoard {
-    private var white: [Int: Int] = [:]
-    private var black: [Int: Int] = [:]
-
-    static func standardSetup() -> BackgammonBoard {
-        var b = BackgammonBoard()
-
-        // ✅ Setup estándar real (por puntos 1...24)
-
-        // BLANCAS: 24=2, 13=5, 8=3, 6=5
-        b.white[24] = 2
-        b.white[13] = 5
-        b.white[8]  = 3
-        b.white[6]  = 5
-
-        // NEGRAS: 1=2, 12=5, 17=3, 19=5
-        b.black[1]  = 2
-        b.black[12] = 5
-        b.black[17] = 3
-        b.black[19] = 5
-
-        return b
-    }
-
-    func content(at point: Int) -> PointSlot.Content {
-        PointSlot.Content(
-            white: white[point, default: 0],
-            black: black[point, default: 0]
-        )
-    }
+private struct BGPointStack {
+    var piece: BGPiece
+    var count: Int
 }
