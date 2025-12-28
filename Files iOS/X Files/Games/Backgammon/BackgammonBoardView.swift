@@ -2,7 +2,7 @@ import SwiftUI
 
 struct BackgammonBoardView: View {
 
-    // Modelos “UI” que ahora ya existen en BackgammonModels.swift
+    // Inputs
     private let colors: BackgammonColorAssignment
     private let startResult: BackgammonStartDiceResult
 
@@ -24,11 +24,11 @@ struct BackgammonBoardView: View {
         self.startResult = startResult
 
         let starter: BGPiece = startResult.starterIsBlack ? .black : .white
+
         _turnNumber = State(initialValue: 1)
         _current = State(initialValue: starter)
         _die1 = State(initialValue: startResult.startMajor)
         _die2 = State(initialValue: startResult.startMinor)
-
         _points = State(initialValue: Self.standardSetup())
     }
 
@@ -45,7 +45,6 @@ struct BackgammonBoardView: View {
     var body: some View {
         VStack(spacing: 0) {
 
-            // Banner arriba (no “se sale”)
             header
 
             Divider()
@@ -58,12 +57,10 @@ struct BackgammonBoardView: View {
                 }
             }
 
-            // Mensaje
             Text("Setup estándar cargado (sin movimientos aún).")
                 .font(.footnote)
                 .foregroundColor(.secondary)
                 .padding(.bottom, 10)
-
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             Button {
@@ -117,7 +114,9 @@ struct BackgammonBoardView: View {
 
                 HStack(spacing: 10) {
                     diceBox("\(die1)")
-                    Text("+").font(.title3.bold()).foregroundColor(.secondary)
+                    Text("+")
+                        .font(.title3.bold())
+                        .foregroundColor(.secondary)
                     diceBox("\(die2)")
                 }
             }
@@ -138,10 +137,16 @@ struct BackgammonBoardView: View {
     // MARK: - Board grid (2 filas x 12)
 
     private func boardGrid(availableWidth: CGFloat) -> some View {
-        // 12 columnas; si no entra, el ScrollView horizontal lo resuelve.
-        let cellW: CGFloat = 60
-        let cellH: CGFloat = 54
+
+        // 12 columnas; ancho dinámico para reducir scroll.
         let spacing: CGFloat = 10
+        let horizontalPadding: CGFloat = 32 // 16 + 16 del padding externo
+        let usable = max(0, availableWidth - horizontalPadding - (spacing * 11))
+
+        // target: 12 celdas visibles en iPhone grande; si no entra, se mantiene scroll horizontal
+        let ideal = usable / 12.0
+        let cellW: CGFloat = min(64, max(44, ideal))
+        let cellH: CGFloat = 56
 
         return VStack(spacing: 16) {
             // Arriba: 24 → 13

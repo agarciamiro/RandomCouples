@@ -1,39 +1,34 @@
 import SwiftUI
+import Foundation
 
 struct BackgammonColorRouletteView: View {
 
     let player1Name: String
     let player2Name: String
-
-    /// Devuelve el assignment al padre
     let onContinue: (BackgammonColorAssignment) -> Void
 
-    @State private var spinning: Bool = false
-    @State private var rotation: Double = 0
-    @State private var hasResult: Bool = false
+    @Environment(\.dismiss) private var dismiss
 
-    // nil = aún no se asignó nada (evita “pre-asignación”)
+    @State private var spinning = false
+    @State private var rotation: Double = 0
+
+    // ✅ CLAVE UX: nil = todavía no hay asignación (NO pre-asigna)
     @State private var p1IsBlack: Bool? = nil
 
-    // MARK: - Derived
+    private var p1Upper: String { sanitizeToUpper(player1Name, fallback: "JUGADOR 1") }
+    private var p2Upper: String { sanitizeToUpper(player2Name, fallback: "JUGADOR 2") }
+
+    private var hasResult: Bool { p1IsBlack != nil }
 
     private var assignment: BackgammonColorAssignment? {
         guard let p1IsBlack else { return nil }
 
-        let p1 = player1Name.uppercased()
-        let p2 = player2Name.uppercased()
+        let blackPlayer = p1IsBlack ? p1Upper : p2Upper
+        let whitePlayer = p1IsBlack ? p2Upper : p1Upper
 
-        let blackPlayer = p1IsBlack ? p1 : p2
-        let whitePlayer = p1IsBlack ? p2 : p1
-
-        // Convención: player1 / player2 según el nombre que quedó “negro/blanco”
-        // OJO: usamos BGSide (tu enum) para poder amarrar tablero/turnos después.
         let blackSide: BGSide = p1IsBlack ? .player1 : .player2
         let whiteSide: BGSide = p1IsBlack ? .player2 : .player1
 
-        // IMPORTANTE: el init de BackgammonColorAssignment en tu proyecto
-        // (por tus errores previos) espera labels en este orden:
-        // blackSide, whiteSide, blackPlayer, whitePlayer
         return BackgammonColorAssignment(
             blackSide: blackSide,
             whiteSide: whiteSide,
@@ -43,131 +38,179 @@ struct BackgammonColorRouletteView: View {
     }
 
     var body: some View {
-        VStack(spacing: 16) {
+        ScrollView {
+            VStack(spacing: 16) {
 
-            Text("Ruleta de colores")
-                .font(.largeTitle.bold())
-                .padding(.top, 8)
+                Text("Ruleta de colores")
+                    .font(.title.bold())
+                    .padding(.top, 8)
 
-            Text("Asigna BLANCAS y NEGRAS")
-                .font(.footnote)
-                .foregroundColor(.secondary)
+                Text("Asigna BLANCAS y NEGRAS")
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
 
-            wheel
-                .padding(.top, 8)
+                wheel
 
-            VStack(spacing: 12) {
-                playerCard(name: player1Name.uppercased(),
-                           piece: hasResult ? (p1IsBlack == true ? "NEGRAS" : "BLANCAS") : "",
-                           dark: hasResult ? (p1IsBlack == true) : false)
+                VStack(spacing: 12) {
+                    playerCard(
+                        name: p1Upper,
+                        piece: pieceTextForP1,
+                        dark: (p1IsBlack == true)
+                    )
 
-                playerCard(name: player2Name.uppercased(),
-                           piece: hasResult ? (p1IsBlack == true ? "BLANCAS" : "NEGRAS") : "",
-                           dark: hasResult ? (p1IsBlack != true) : false)
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 2)
-
-            Spacer()
-
-            if !hasResult {
-                Button {
-                    spinOnce()
-                } label: {
-                    Text(spinning ? "Girando..." : "Girar")
-                        .font(.headline.bold())
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
+                    playerCard(
+                        name: p2Upper,
+                        piece: pieceTextForP2,
+                        dark: (p1IsBlack == false && p1IsBlack != nil)
+                    )
                 }
-                .buttonStyle(.borderedProminent)
                 .padding(.horizontal, 16)
-                .padding(.bottom, 18)
-                .disabled(spinning)
-            } else {
-                Button {
-                    if let a = assignment {
-                        onContinue(a)
+                .padding(.top, 4)
+
+                Spacer(minLength: 10)
+
+                // ✅ Botón Girar SOLO antes de tener resultado
+                if !hasResult {
+                    Button {
+                        spinOnce()
+                    } label: {
+                        Text(spinning ? "Girando..." : "Girar")
+                            .font(.headline.bold())
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
                     }
-                } label: {
-                    Text("Continuar")
-                        .font(.headline.bold())
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(spinning)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
                 }
-                .buttonStyle(.borderedProminent)
-                .padding(.horizontal, 16)
 
-                Button {
-                    resetSpin()
-                } label: {
-                    Text("Repetir giro")
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
-                        .padding(.top, 6)
+                // ✅ Botón Continuar SOLO cuando ya hay resultado
+                if hasResult {
+                    Button {
+                        if let a = assignment {
+                            onContinue(a)
+                        }
+                    } label: {
+                        Text("Continuar")
+                            .font(.headline.bold())
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+
+                    Button {
+                        resetSpin()
+                        spinOnce()
+                    } label: {
+                        Text("Repetir giro")
+                            .font(.footnote)
+                            .foregroundColor(.secondary)
+                            .padding(.top, 4)
+                    }
+                    .padding(.bottom, 10)
                 }
-                .padding(.bottom, 18)
             }
         }
         .navigationTitle("Backgammon")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button("Cerrar") { dismiss() }
+            }
+        }
     }
 
-    // MARK: - Wheel UI
+    // MARK: - Wheel
 
     private var wheel: some View {
         ZStack {
-            Circle()
-                .fill(Color.white)
-                .overlay(
-                    Circle().stroke(Color.black.opacity(0.08), lineWidth: 1)
-                )
-                .shadow(color: .black.opacity(0.08), radius: 18, x: 0, y: 10)
+            ZStack {
+                BGHalfPie(color: Color.gray.opacity(0.18))
+                BGHalfPie(color: Color.black.opacity(0.88))
+                    .rotationEffect(.degrees(180))
+            }
+            .rotationEffect(.degrees(rotation))
+            .animation(.easeOut(duration: 1.10), value: rotation)
 
-            // Mitad blanca / mitad negra
-            PieHalf(color: .white)
-                .rotationEffect(.degrees(0))
+            // Textos decorativos del wheel
+            ZStack {
+                Text("BLANCAS")
+                    .font(.headline.bold())
+                    .rotationEffect(.degrees(-25))
+                    .offset(x: -78, y: 45)
+                    .foregroundColor(.black.opacity(0.75))
 
-            PieHalf(color: .black.opacity(0.92))
-                .rotationEffect(.degrees(180))
-
-            // Labels
-            Text("BLANCAS")
-                .font(.system(size: 18, weight: .bold))
-                .foregroundColor(.black.opacity(0.75))
-                .rotationEffect(.degrees(-155))
-                .offset(x: -70, y: 36)
-
-            Text("NEGRAS")
-                .font(.system(size: 18, weight: .bold))
-                .foregroundColor(.white.opacity(0.92))
-                .rotationEffect(.degrees(25))
-                .offset(x: 76, y: -32)
+                Text("NEGRAS")
+                    .font(.headline.bold())
+                    .rotationEffect(.degrees(25))
+                    .offset(x: 78, y: 45)
+                    .foregroundColor(.white.opacity(0.92))
+            }
+            .rotationEffect(.degrees(rotation))
+            .animation(.easeOut(duration: 1.10), value: rotation)
 
             // Centro
-            Circle()
-                .fill(Color.white.opacity(0.65))
-                .frame(width: 130, height: 130)
-                .shadow(color: .black.opacity(0.12), radius: 10, x: 0, y: 6)
+            ZStack {
+                Circle()
+                    .fill(.ultraThinMaterial)
+                    .frame(width: 92, height: 92)
+                    .shadow(color: .black.opacity(0.15), radius: 10, x: 0, y: 8)
 
-            VStack(spacing: 6) {
-                Image(systemName: "seal.fill")
-                    .font(.title3)
-                    .foregroundColor(.black.opacity(0.85))
-                Text("Listo")
-                    .font(.headline)
-                    .foregroundColor(.black.opacity(0.85))
+                VStack(spacing: 6) {
+                    Image(systemName: "shuffle")
+                        .font(.title3)
+                        .foregroundColor(.black.opacity(0.85))
+                    Text("Listo")
+                        .font(.headline)
+                        .foregroundColor(.black.opacity(0.85))
+                }
             }
 
             // Puntero
             BGTrianglePointer()
                 .fill(Color.orange.opacity(0.95))
-                .frame(width: 20, height: 16)
-                .shadow(color: .black.opacity(0.18), radius: 6, x: 0, y: 4)
+                .frame(width: 22, height: 16)
+                .shadow(color: Color.black.opacity(0.18), radius: 6, x: 0, y: 4)
                 .offset(y: -170)
         }
         .frame(width: 340, height: 340)
-        .rotationEffect(.degrees(rotation))
-        .animation(.easeOut(duration: 1.3), value: rotation)
+        .padding(.top, 8)
+    }
+
+    // MARK: - Derived UI
+
+    private var pieceTextForP1: String {
+        guard let p1IsBlack else { return "—" }
+        return p1IsBlack ? "NEGRAS" : "BLANCAS"
+    }
+
+    private var pieceTextForP2: String {
+        guard let p1IsBlack else { return "—" }
+        return p1IsBlack ? "BLANCAS" : "NEGRAS"
+    }
+
+    private func playerCard(name: String, piece: String, dark: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(name)
+                .font(.headline.bold())
+                .foregroundColor(dark ? .white : .primary)
+
+            Text(piece)
+                .font(.caption.bold())
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(dark ? Color.black.opacity(0.88) : Color.gray.opacity(0.18))
+                .foregroundColor(dark ? .white : .primary)
+                .cornerRadius(10)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 14)
+        .padding(.horizontal, 16)
+        .background(dark ? Color.black.opacity(0.88) : Color.gray.opacity(0.18))
+        .cornerRadius(14)
     }
 
     // MARK: - Actions
@@ -175,52 +218,37 @@ struct BackgammonColorRouletteView: View {
     private func spinOnce() {
         guard !spinning else { return }
         spinning = true
+        p1IsBlack = nil
 
-        // random assignment
-        let p1Black = Bool.random()
-        p1IsBlack = p1Black
+        let extraTurns = Double(Int.random(in: 3...6)) * 360.0
+        let landing = Double(Int.random(in: 0...359))
 
-        // random rotation (con vueltas)
-        let turns = Double(Int.random(in: 3...6)) * 360.0
-        let offset = Double(Int.random(in: 0...359))
-        rotation += turns + offset
+        withAnimation(.easeOut(duration: 1.10)) {
+            rotation += extraTurns + landing
+        }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.35) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.10) {
+            p1IsBlack = Bool.random()
             spinning = false
-            hasResult = true
         }
     }
 
     private func resetSpin() {
-        hasResult = false
         p1IsBlack = nil
+        spinning = false
     }
 
-    // MARK: - Cards
+    // MARK: - Helpers
 
-    private func playerCard(name: String, piece: String, dark: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(name)
-                .font(.headline.bold())
-                .foregroundColor(dark ? .white : .primary)
-
-            if !piece.isEmpty {
-                Text(piece)
-                    .font(.title3.bold())
-                    .foregroundColor(dark ? .white : .primary)
-            }
-        }
-        .padding(.vertical, 14)
-        .padding(.horizontal, 16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(dark ? Color.black.opacity(0.88) : Color.gray.opacity(0.18))
-        .cornerRadius(14)
+    private func sanitizeToUpper(_ s: String, fallback: String) -> String {
+        let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
+        return t.isEmpty ? fallback : t.uppercased()
     }
 }
 
-// MARK: - Shapes
+// MARK: - Local shapes (nombres únicos para evitar “redeclaration”)
 
-private struct PieHalf: View {
+private struct BGHalfPie: View {
     let color: Color
     var body: some View {
         GeometryReader { geo in
