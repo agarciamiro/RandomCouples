@@ -129,7 +129,7 @@ struct BackgammonDiceRouletteView: View {
                         .font(.title3)
                         .foregroundColor(.black.opacity(0.85))
 
-                    Text("Listo")
+                    Text(hasResult ? "Listo" : "Gira")
                         .font(.headline)
                         .foregroundColor(.primary)
                 }
@@ -170,26 +170,30 @@ struct BackgammonDiceRouletteView: View {
 
     private func playerDieCard(name: String, piece: String, die: Int, dark: Bool) -> some View {
         VStack(alignment: .leading, spacing: 8) {
+
             Text(name)
                 .font(.headline.bold())
-                .foregroundColor(dark ? .primary : .primary)
+                .foregroundColor(dark ? .white : .primary)
 
             Text(piece)
                 .font(.caption.bold())
                 .padding(.horizontal, 10)
                 .padding(.vertical, 4)
-                .background(piece == "NEGRAS" ? Color.black.opacity(0.85) : Color.gray.opacity(0.18))
-                .foregroundColor(piece == "NEGRAS" ? .white : .primary)
+                .background(
+                    dark
+                    ? (piece == "NEGRAS" ? Color.black.opacity(0.85) : Color.white.opacity(0.12))
+                    : (piece == "NEGRAS" ? Color.black.opacity(0.85) : Color.gray.opacity(0.18))
+                )
+                .foregroundColor(dark ? .white : (piece == "NEGRAS" ? .white : .primary))
                 .cornerRadius(10)
 
             Text("Dado: \(die)")
                 .font(.footnote)
-                .foregroundColor(.secondary)
+                .foregroundColor(dark ? .white.opacity(0.85) : .secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
         .background(dark ? Color.black.opacity(0.85) : Color.gray.opacity(0.18))
-        .foregroundColor(dark ? .white : .primary)
         .cornerRadius(16)
     }
 
