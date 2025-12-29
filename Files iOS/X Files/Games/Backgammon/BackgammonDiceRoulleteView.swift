@@ -129,7 +129,7 @@ struct BackgammonDiceRouletteView: View {
                         .font(.title3)
                         .foregroundColor(.black.opacity(0.85))
 
-                    Text("Listo")
+                    Text(hasResult ? "Listo" : "Gira")
                         .font(.headline)
                         .foregroundColor(.primary)
                 }
