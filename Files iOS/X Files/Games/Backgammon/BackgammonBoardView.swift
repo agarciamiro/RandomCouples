@@ -139,8 +139,11 @@ struct BackgammonBoardView: View {
     private func boardGrid(availableWidth: CGFloat) -> some View {
         // Clockwise order + bar between 18/19 and 6/7
         let barW: CGFloat = 12
+        let spacing: CGFloat = 6
+        let hPad: CGFloat = 32
+        let usable = max(0, availableWidth - hPad)
         let cellH: CGFloat = 50
-        let cellW: CGFloat = max(18, floor((availableWidth - barW - 24) / 12))
+        let cellW: CGFloat = max(18, floor((usable - barW - (spacing * 12)) / 12))
 
         let topLeft  = [13,14,15,16,17,18]
         let topRight = [19,20,21,22,23,24]
