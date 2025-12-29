@@ -137,68 +137,81 @@ struct BackgammonBoardView: View {
     // MARK: - Board grid (2 filas x 12)
 
     private func boardGrid(availableWidth: CGFloat) -> some View {
+        // Clockwise order + bar between 18/19 and 6/7
+        let barW: CGFloat = 12
+        let cellH: CGFloat = 50
+        let cellW: CGFloat = max(18, floor((availableWidth - barW - 24) / 12))
 
-        // 12 columnas; ancho dinámico para reducir scroll.
-        let spacing: CGFloat = 10
-        let horizontalPadding: CGFloat = 32 // 16 + 16 del padding externo
-        let usable = max(0, availableWidth - horizontalPadding - (spacing * 11))
+        let topLeft  = [13,14,15,16,17,18]
+        let topRight = [19,20,21,22,23,24]
+        let botLeft  = [12,11,10,9,8,7]
+        let botRight = [6,5,4,3,2,1]
 
-        // target: 12 celdas visibles en iPhone grande; si no entra, se mantiene scroll horizontal
-        let ideal = usable / 12.0
-        let cellW: CGFloat = min(64, max(44, ideal))
-        let cellH: CGFloat = 56
+        return VStack(spacing: 10) {
+            HStack(spacing: 6) {
+                ForEach(topLeft, id: \.self) { idx in
+                    pointCell(index: idx, cellW: cellW, cellH: cellH)
+                }
 
-        return VStack(spacing: 16) {
-            // Arriba: 24 → 13
-            HStack(spacing: spacing) {
-                ForEach(Array(stride(from: 24, through: 13, by: -1)), id: \.self) { idx in
-                    pointCell(index: idx)
-                        .frame(width: cellW, height: cellH)
+                Rectangle()
+                    .fill(Color.gray.opacity(0.22))
+                    .frame(width: barW, height: cellH)
+                    .cornerRadius(8)
+
+                ForEach(topRight, id: \.self) { idx in
+                    pointCell(index: idx, cellW: cellW, cellH: cellH)
                 }
             }
 
-            // Abajo: 12 → 1
-            HStack(spacing: spacing) {
-                ForEach(Array(stride(from: 12, through: 1, by: -1)), id: \.self) { idx in
-                    pointCell(index: idx)
-                        .frame(width: cellW, height: cellH)
+            HStack(spacing: 6) {
+                ForEach(botLeft, id: \.self) { idx in
+                    pointCell(index: idx, cellW: cellW, cellH: cellH)
+                }
+
+                Rectangle()
+                    .fill(Color.gray.opacity(0.22))
+                    .frame(width: barW, height: cellH)
+                    .cornerRadius(8)
+
+                ForEach(botRight, id: \.self) { idx in
+                    pointCell(index: idx, cellW: cellW, cellH: cellH)
                 }
             }
         }
     }
 
-    private func pointCell(index: Int) -> some View {
+    private func pointCell(index: Int, cellW: CGFloat, cellH: CGFloat) -> some View {
         let stack = points[index] ?? BGPointStack(piece: .none, count: 0)
+        let dot = min(cellW, cellH) * 0.62
 
-        return VStack(spacing: 6) {
+        return VStack(spacing: 4) {
             ZStack {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(Color(.systemGray6))
 
                 if stack.count == 0 || stack.piece == .none {
                     Text("–")
-                        .font(.title3.bold())
+                        .font(.system(size: max(12, dot * 0.6), weight: .bold))
                         .foregroundColor(.secondary)
                 } else {
                     ZStack {
                         Circle()
                             .fill(stack.piece == .black ? Color(.label) : Color(.systemBackground))
-                            .overlay(
-                                Circle().stroke(Color(.separator), lineWidth: 1)
-                            )
+                            .overlay(Circle().stroke(Color(.separator), lineWidth: 1))
 
                         Text("\(stack.count)")
-                            .font(.headline.bold())
+                            .font(.system(size: max(10, dot * 0.45), weight: .bold))
                             .foregroundColor(stack.piece == .black ? .white : .black)
                     }
-                    .frame(width: 34, height: 34)
+                    .frame(width: dot, height: dot)
                 }
             }
 
             Text("\(index)")
-                .font(.caption)
+                .font(.system(size: max(9, dot * 0.22)))
                 .foregroundColor(.secondary)
         }
+        .frame(width: cellW, height: cellH)
     }
 
     // MARK: - Actions
@@ -217,16 +230,16 @@ struct BackgammonBoardView: View {
         for i in 1...24 { p[i] = BGPointStack(piece: .none, count: 0) }
 
         // Blancas (white): 2 en 24, 5 en 13, 3 en 8, 5 en 6
-        p[24] = BGPointStack(piece: .white, count: 2)
-        p[13] = BGPointStack(piece: .white, count: 5)
-        p[8]  = BGPointStack(piece: .white, count: 3)
-        p[6]  = BGPointStack(piece: .white, count: 5)
+        p[24] = BGPointStack(piece: .black, count: 2)
+        p[13] = BGPointStack(piece: .black, count: 5)
+        p[8]  = BGPointStack(piece: .black, count: 3)
+        p[6]  = BGPointStack(piece: .black, count: 5)
 
         // Negras (black): 2 en 1, 5 en 12, 3 en 17, 5 en 19
-        p[1]  = BGPointStack(piece: .black, count: 2)
-        p[12] = BGPointStack(piece: .black, count: 5)
-        p[17] = BGPointStack(piece: .black, count: 3)
-        p[19] = BGPointStack(piece: .black, count: 5)
+        p[1]  = BGPointStack(piece: .white, count: 2)
+        p[12] = BGPointStack(piece: .white, count: 5)
+        p[17] = BGPointStack(piece: .white, count: 3)
+        p[19] = BGPointStack(piece: .white, count: 5)
 
         return p
     }
