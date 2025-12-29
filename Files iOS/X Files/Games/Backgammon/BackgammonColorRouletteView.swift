@@ -163,7 +163,7 @@ struct BackgammonColorRouletteView: View {
                     Image(systemName: "shuffle")
                         .font(.title3)
                         .foregroundColor(.black.opacity(0.85))
-                    Text("Listo")
+                    Text(hasResult ? "Listo" : "Gira")
                         .font(.headline)
                         .foregroundColor(.black.opacity(0.85))
                 }
