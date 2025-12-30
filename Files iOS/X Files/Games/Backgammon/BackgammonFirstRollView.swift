@@ -16,8 +16,10 @@ struct BackgammonFirstRollView: View {
     @State private var rolling: Bool = false
     @State private var rotation: Double = 0
 
-    // Navegación al tablero/juego
-    @State private var goGame: Bool = false
+    // ✅ Navegación al TABLERO (directo, sin pantalla intermedia)
+    @State private var goBoard: Bool = false
+    @State private var nextColors: BackgammonColorAssignment? = nil
+    @State private var nextStart: BackgammonStartDiceResult? = nil
 
     var body: some View {
         VStack(spacing: 18) {
@@ -63,9 +65,7 @@ struct BackgammonFirstRollView: View {
                 }
             }
             .contentShape(Circle())
-            .onTapGesture {
-                tirar()
-            }
+            .onTapGesture { tirar() }
 
             Spacer()
 
@@ -96,10 +96,12 @@ struct BackgammonFirstRollView: View {
                     .padding(.top, 6)
             }
 
-            // Continuar (deshabilitado hasta que haya resolución)
+            // ✅ Continuar: va DIRECTO al TABLERO
             Button {
-                guard resolved != nil else { return }
-                goGame = true
+                guard let opening = resolved else { return }
+                nextColors = opening.colors
+                nextStart = opening.startResult
+                goBoard = true
             } label: {
                 Text("Continuar")
                     .font(.headline.bold())
@@ -110,10 +112,10 @@ struct BackgammonFirstRollView: View {
             .padding(.horizontal, 16)
             .disabled(resolved == nil)
 
-            // Navegación invisible (evita flashes)
+            // ✅ Navegación invisible al tablero
             NavigationLink(
-                destination: destinationGameView(),
-                isActive: $goGame
+                destination: destinationBoardView(),
+                isActive: $goBoard
             ) { EmptyView() }
             .hidden()
 
@@ -144,14 +146,9 @@ struct BackgammonFirstRollView: View {
     }
 
     @ViewBuilder
-    private func destinationGameView() -> some View {
-        if let opening = resolved {
-            BackgammonGameView(
-                config: config,
-                players: players,
-                assignment: assignment,
-                opening: opening
-            )
+    private func destinationBoardView() -> some View {
+        if let c = nextColors, let s = nextStart {
+            BackgammonBoardView(colors: c, startResult: s)
         } else {
             // Fallback ultra seguro (no debería verse)
             EmptyView()
