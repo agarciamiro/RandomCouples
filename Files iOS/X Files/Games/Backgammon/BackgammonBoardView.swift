@@ -232,17 +232,17 @@ struct BackgammonBoardView: View {
         var p: [Int: BGPointStack] = [:]
         for i in 1...24 { p[i] = BGPointStack(piece: .none, count: 0) }
 
-        // Blancas (white): 2 en 24, 5 en 13, 3 en 8, 5 en 6
-        p[24] = BGPointStack(piece: .black, count: 2)
-        p[13] = BGPointStack(piece: .black, count: 5)
-        p[8]  = BGPointStack(piece: .black, count: 3)
-        p[6]  = BGPointStack(piece: .black, count: 5)
+        // ✅ BLANCAS (white): 2 en 24, 5 en 13, 3 en 8, 5 en 6
+        p[24] = BGPointStack(piece: .white, count: 2)
+        p[13] = BGPointStack(piece: .white, count: 5)
+        p[8]  = BGPointStack(piece: .white, count: 3)
+        p[6]  = BGPointStack(piece: .white, count: 5)
 
-        // Negras (black): 2 en 1, 5 en 12, 3 en 17, 5 en 19
-        p[1]  = BGPointStack(piece: .white, count: 2)
-        p[12] = BGPointStack(piece: .white, count: 5)
-        p[17] = BGPointStack(piece: .white, count: 3)
-        p[19] = BGPointStack(piece: .white, count: 5)
+        // ✅ NEGRAS (black): 2 en 1, 5 en 12, 3 en 17, 5 en 19
+        p[1]  = BGPointStack(piece: .black, count: 2)
+        p[12] = BGPointStack(piece: .black, count: 5)
+        p[17] = BGPointStack(piece: .black, count: 3)
+        p[19] = BGPointStack(piece: .black, count: 5)
 
         return p
     }
