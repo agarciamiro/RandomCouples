@@ -22,8 +22,14 @@ struct BackgammonNamesView: View {
     @State private var mostrarAlerta: Bool = false
     @State private var mensajeAlerta: String = ""
 
-    // ✅ Navegación (trigger)
+    // ✅ Navegación
     @State private var goColors: Bool = false
+    @State private var goFirstRoll: Bool = false
+
+    // ✅ Datos para la siguiente pantalla (dados)
+    @State private var nextConfig: BackgammonConfig = BackgammonConfig()
+    @State private var nextPlayers: BackgammonPlayers = BackgammonPlayers()
+    @State private var nextAssignment: BackgammonAssignment = BackgammonAssignment.default
 
     @FocusState private var focusedField: Field?
     private enum Field { case p1, p2 }
@@ -106,16 +112,41 @@ struct BackgammonNamesView: View {
             .padding(.horizontal, 18)
             .disabled(!isValid)
 
-            // ✅ Trigger invisible para navegar (SIN crear NavigationStack aquí)
+            // 1) Navega a la ruleta de colores
             NavigationLink(
                 destination: BackgammonColorRouletteView(
                     player1Name: lockedP1,
                     player2Name: lockedP2
-                ) { _ in
-                    // Retorna BackgammonColorAssignment cuando termina la ruleta.
-                    // Por ahora no hacemos nada aquí.
+                ) { colors in
+                    // ✅ Al terminar colores, preparamos la pantalla de dados (FirstRoll)
+                    let players = BackgammonPlayers(p1: lockedP1, p2: lockedP2)
+
+                    let assignment: BackgammonAssignment
+                    if colors.blackSide == .player1 {
+                        assignment = BackgammonAssignment(p1Color: .black, p2Color: .white)
+                    } else {
+                        assignment = BackgammonAssignment(p1Color: .white, p2Color: .black)
+                    }
+
+                    nextPlayers = players
+                    nextAssignment = assignment
+                    nextConfig = config ?? BackgammonConfig()
+
+                    // Activar navegación al siguiente paso (dados)
+                    goFirstRoll = true
                 },
                 isActive: $goColors
+            ) { EmptyView() }
+            .hidden()
+
+            // 2) Navega a la ruleta de dados (FirstRoll) una vez asignados los colores
+            NavigationLink(
+                destination: BackgammonFirstRollView(
+                    config: nextConfig,
+                    players: nextPlayers,
+                    assignment: nextAssignment
+                ),
+                isActive: $goFirstRoll
             ) { EmptyView() }
             .hidden()
 
