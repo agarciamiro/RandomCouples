@@ -7,6 +7,8 @@ struct BackgammonColorRouletteView: View {
     let player2Name: String
     let onAssigned: (BackgammonColorAssignment) -> Void
 
+    @Environment(\.dismiss) private var dismiss
+
     // MARK: - State
     @State private var finalColors: BackgammonColorAssignment? = nil
     @State private var isSpinning: Bool = false
@@ -28,9 +30,8 @@ struct BackgammonColorRouletteView: View {
 
             Spacer()
 
-            // Ruleta (UI: mitad NEGRA / mitad BLANCA) + "Listo"
+            // Ruleta (UI: mitad NEGRA / mitad BLANCA) + estado "Listo" solo al final
             ZStack {
-
                 Circle()
                     .fill(
                         AngularGradient(
@@ -46,16 +47,14 @@ struct BackgammonColorRouletteView: View {
                     )
                     .frame(width: 260, height: 260)
                     .rotationEffect(.degrees(rotation))
-                    .overlay(
-                        Circle().stroke(Color.black.opacity(0.15), lineWidth: 2)
-                    )
+                    .overlay(Circle().stroke(Color.black.opacity(0.15), lineWidth: 2))
 
                 VStack(spacing: 6) {
                     Image(systemName: "shuffle")
-                        .font(.title2)
+                        .font(.title2.bold())
                         .foregroundColor(.blue)
 
-                    Text("Listo")
+                    Text(finalColors == nil ? "Toca para girar" : "Listo")
                         .font(.headline)
                         .foregroundColor(.blue)
                 }
@@ -67,82 +66,64 @@ struct BackgammonColorRouletteView: View {
 
             Spacer()
 
-            // Resultado
-            if let result = finalColors {
-                VStack(spacing: 12) {
-                    tarjeta(
-                        nombre: result.blackPlayer,
-                        fondo: .black,
-                        texto: "NEGRAS"
-                    )
-
-                    tarjeta(
-                        nombre: result.whitePlayer,
-                        fondo: .gray.opacity(0.15),
-                        texto: "BLANCAS"
-                    )
+            // Resultado (solo cuando ya asignó)
+            if let r = finalColors {
+                VStack(spacing: 14) {
+                    tarjeta(nombre: r.blackPlayer, fondo: .black, texto: "NEGRAS")
+                    tarjeta(nombre: r.whitePlayer, fondo: .white, texto: "BLANCAS")
                 }
                 .padding(.horizontal)
             }
 
-            // Continuar (LÓGICA: sin disabled, sin pop)
+            // Continuar: SOLO funciona cuando ya hay asignación
             Button {
-                // Si aún no hay asignación, la hacemos aquí
-                if finalColors == nil {
-                    girarYAsignar()
-                    return
-                }
-
-                // Ya asignado → avisamos al padre
-                if let result = finalColors {
-                    onAssigned(result)
-                    // NO dismiss() -> no vuelve a nombres
-                }
+                guard let result = finalColors else { return }
+                onAssigned(result)
+                // Volvemos al padre para que continúe el flujo (sin quedarse trabado aquí)
+                dismiss()
             } label: {
                 Text("Continuar")
                     .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color.accentColor)
-                    .cornerRadius(26)
+                    .frame(maxWidth: .infinity)
+                    .background(finalColors == nil ? Color.gray.opacity(0.35) : Color.accentColor)
+                    .foregroundColor(.white)
+                    .cornerRadius(28)
+                    .padding(.horizontal)
             }
-            .padding(.horizontal)
+            .disabled(finalColors == nil)
 
-            Spacer(minLength: 10)
+            Spacer(minLength: 18)
         }
     }
 
-    // MARK: - Lógica (NO UI)
+    // MARK: - Lógica
 
     private func girarYAsignar() {
         guard !isSpinning else { return }
         isSpinning = true
 
-        withAnimation(.easeOut(duration: 1.2)) {
-            rotation += Double.random(in: 720...1080)
+        withAnimation(.easeInOut(duration: 1.2)) {
+            rotation += Double.random(in: 720...1440)
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-            asignarColores()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.25) {
+            let players = BackgammonPlayers(p1: player1Name, p2: player2Name)
+
+            // Random simple: 50/50
+            let assignment: BackgammonAssignment
+            if Bool.random() {
+                assignment = BackgammonAssignment(p1Color: .black, p2Color: .white)
+            } else {
+                assignment = BackgammonAssignment(p1Color: .white, p2Color: .black)
+            }
+
+            finalColors = BackgammonColorAssignment(players: players, assignment: assignment)
             isSpinning = false
         }
     }
 
-    private func asignarColores() {
-        let players = BackgammonPlayers(p1: player1Name, p2: player2Name)
-
-        let assignment: BackgammonAssignment
-        if Bool.random() {
-            assignment = BackgammonAssignment(p1Color: .black, p2Color: .white)
-        } else {
-            assignment = BackgammonAssignment(p1Color: .white, p2Color: .black)
-        }
-
-        finalColors = BackgammonColorAssignment(players: players, assignment: assignment)
-    }
-
-    // MARK: - UI helpers
+    // MARK: - UI helper
 
     private func tarjeta(nombre: String, fondo: Color, texto: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
