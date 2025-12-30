@@ -69,7 +69,7 @@ struct BackgammonFirstRollView: View {
 
             Spacer()
 
-            // Cards de resultado (siempre visibles con placeholder —)
+            // Cards de resultado (con etiqueta BLANCAS/NEGRAS para evitar confusión)
             VStack(spacing: 10) {
                 rollCard(name: players.p1, value: lastP1, color: assignment.p1Color)
                 rollCard(name: players.p2, value: lastP2, color: assignment.p2Color)
@@ -88,7 +88,6 @@ struct BackgammonFirstRollView: View {
 
             if let opening = resolved {
                 let starterName = (opening.starter == .player1) ? players.p1 : players.p2
-
                 Text("Empieza: \(starterName) — Dados iniciales: \(opening.openingDice[0]) + \(opening.openingDice[1])")
                     .font(.footnote.bold())
                     .multilineTextAlignment(.center)
@@ -134,9 +133,23 @@ struct BackgammonFirstRollView: View {
     }
 
     private func rollCard(name: String, value: Int?, color: BGColor) -> some View {
-        HStack {
-            Text(name).font(.subheadline.bold())
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(name)
+                    .font(.subheadline.bold())
+
+                // ✅ Etiqueta clara de color (BLANCAS / NEGRAS)
+                Text(color == .black ? "NEGRAS" : "BLANCAS")
+                    .font(.caption.bold())
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(color == .black ? Color.black.opacity(0.85) : Color(.systemGray5))
+                    .foregroundColor(color == .black ? .white : .black)
+                    .clipShape(Capsule())
+            }
+
             Spacer()
+
             Text(value == nil ? "—" : "\(value!)")
                 .font(.title3.bold())
         }
