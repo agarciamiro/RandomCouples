@@ -7,8 +7,6 @@ struct BackgammonColorRouletteView: View {
     let player2Name: String
     let onAssigned: (BackgammonColorAssignment) -> Void
 
-    @Environment(\.dismiss) private var dismiss
-
     // MARK: - State
     @State private var finalColors: BackgammonColorAssignment? = nil
     @State private var isSpinning: Bool = false
@@ -60,9 +58,7 @@ struct BackgammonColorRouletteView: View {
                 }
             }
             .contentShape(Circle())
-            .onTapGesture {
-                girarYAsignar()
-            }
+            .onTapGesture { girarYAsignar() }
 
             Spacer()
 
@@ -78,9 +74,9 @@ struct BackgammonColorRouletteView: View {
             // Continuar: SOLO funciona cuando ya hay asignación
             Button {
                 guard let result = finalColors else { return }
+                // ✅ NO hacemos dismiss() aquí.
+                // El flujo siguiente lo dispara el padre (BackgammonNamesView) al recibir onAssigned.
                 onAssigned(result)
-                // Volvemos al padre para que continúe el flujo (sin quedarse trabado aquí)
-                dismiss()
             } label: {
                 Text("Continuar")
                     .font(.headline)
@@ -126,9 +122,13 @@ struct BackgammonColorRouletteView: View {
     // MARK: - UI helper
 
     private func tarjeta(nombre: String, fondo: Color, texto: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        // ✅ Contraste correcto para el NOMBRE (antes se perdía en negro sobre negro)
+        let nombreColor: Color = (fondo == .black) ? .white : .black
+
+        return VStack(alignment: .leading, spacing: 6) {
             Text(nombre)
                 .font(.headline)
+                .foregroundColor(nombreColor)
 
             Text(texto)
                 .font(.caption.bold())

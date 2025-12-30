@@ -8,22 +8,68 @@ struct BackgammonFirstRollView: View {
 
     @State private var lastP1: Int? = nil
     @State private var lastP2: Int? = nil
+
+    // Si empatan, sube y se vuelve a tirar tocando la ruleta
     @State private var tieMultiplier: Int = 1
+
     @State private var resolved: BackgammonOpening? = nil
-    @State private var rolling = false
+    @State private var rolling: Bool = false
+    @State private var rotation: Double = 0
+
+    // Navegación al tablero/juego
+    @State private var goGame: Bool = false
 
     var body: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 18) {
 
-            Text("Inicio de partida")
-                .font(.title2.bold())
+            VStack(spacing: 6) {
+                Text("Inicio de partida")
+                    .font(.title2.bold())
 
-            Text("Cada jugador tira 1 dado. Si empatan, se repite.")
-                .font(.footnote)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 18)
+                Text("Cada jugador tira 1 dado. Si empatan, se repite.")
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 18)
+            }
+            .padding(.top, 10)
 
+            Spacer()
+
+            // 🎲 Ruleta / acción principal (tocar para tirar)
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [.black.opacity(0.95), .gray.opacity(0.35)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .frame(width: 260, height: 260)
+                    .rotationEffect(.degrees(rotation))
+                    .overlay(
+                        Circle().stroke(Color.black.opacity(0.15), lineWidth: 2)
+                    )
+
+                VStack(spacing: 6) {
+                    Image(systemName: "die.face.5")
+                        .font(.title2.bold())
+                        .foregroundColor(.blue)
+
+                    Text(centerText)
+                        .font(.headline)
+                        .foregroundColor(.blue)
+                }
+            }
+            .contentShape(Circle())
+            .onTapGesture {
+                tirar()
+            }
+
+            Spacer()
+
+            // Cards de resultado (siempre visibles con placeholder —)
             VStack(spacing: 10) {
                 rollCard(name: players.p1, value: lastP1, color: assignment.p1Color)
                 rollCard(name: players.p2, value: lastP2, color: assignment.p2Color)
@@ -31,7 +77,7 @@ struct BackgammonFirstRollView: View {
             .padding(.horizontal, 16)
 
             if tieMultiplier > 1 && resolved == nil {
-                Text("Empate: multiplicador x\(tieMultiplier)")
+                Text("Empate: vuelve a tocar para tirar (x\(tieMultiplier))")
                     .font(.footnote.bold())
                     .padding(.vertical, 8)
                     .frame(maxWidth: .infinity)
@@ -40,84 +86,49 @@ struct BackgammonFirstRollView: View {
                     .padding(.horizontal, 16)
             }
 
-            Spacer()
-
-            Button {
-                tirar()
-            } label: {
-                Text(rolling ? "Tirando..." : "Tirar")
-                    .font(.headline.bold())
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-            }
-            .buttonStyle(.borderedProminent)
-            .padding(.horizontal, 16)
-            .disabled(rolling || resolved != nil)
-
             if let opening = resolved {
-                // ✅ .player1 (no .playerl)
                 let starterName = (opening.starter == .player1) ? players.p1 : players.p2
 
                 Text("Empieza: \(starterName) — Dados iniciales: \(opening.openingDice[0]) + \(opening.openingDice[1])")
                     .font(.footnote.bold())
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 18)
-
-                NavigationLink {
-                    BackgammonGameView(
-                        config: config,
-                        players: players,
-                        assignment: assignment,
-                        opening: opening
-                    )
-                } label: {
-                    Text("Comenzar juego")
-                        .font(.headline.bold())
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                }
-                .buttonStyle(.borderedProminent)
-                .padding(.horizontal, 16)
-                .padding(.bottom, 14)
+                    .padding(.top, 6)
             }
+
+            // Continuar (deshabilitado hasta que haya resolución)
+            Button {
+                guard resolved != nil else { return }
+                goGame = true
+            } label: {
+                Text("Continuar")
+                    .font(.headline.bold())
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+            }
+            .buttonStyle(.borderedProminent)
+            .padding(.horizontal, 16)
+            .disabled(resolved == nil)
+
+            // Navegación invisible (evita flashes)
+            NavigationLink(
+                destination: destinationGameView(),
+                isActive: $goGame
+            ) { EmptyView() }
+            .hidden()
+
+            Spacer(minLength: 14)
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    private func tirar() {
-        rolling = true
+    // MARK: - UI
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: {
-            // Mantengo tu engine si existe
-            let r = BackgammonDiceEngine.rollOpeningDiceDistinct()
-
-            lastP1 = r.p1
-            lastP2 = r.p2
-
-            // Mapear dados a NEGRAS/BLANCAS según assignment
-            let blackDie: Int
-            let whiteDie: Int
-            if assignment.p1Color == .black {
-                blackDie = r.p1
-                whiteDie = r.p2
-            } else {
-                blackDie = r.p2
-                whiteDie = r.p1
-            }
-
-            // tieMultiplier lo llevas visual, tieCount lo guardamos como tieMultiplier-1
-            let start = BackgammonStartDiceResult(blackDie: blackDie, whiteDie: whiteDie, tieCount: max(0, tieMultiplier - 1))
-
-            resolved = BackgammonOpening(
-                config: config,
-                players: players,
-                assignment: assignment,
-                startResult: start
-            )
-
-            rolling = false
-        })
+    private var centerText: String {
+        if resolved != nil { return "Listo" }
+        if rolling { return "Tirando..." }
+        return "Toca para tirar"
     }
 
     private func rollCard(name: String, value: Int?, color: BGColor) -> some View {
@@ -130,5 +141,75 @@ struct BackgammonFirstRollView: View {
         .padding(12)
         .background(.ultraThinMaterial)
         .cornerRadius(14)
+    }
+
+    @ViewBuilder
+    private func destinationGameView() -> some View {
+        if let opening = resolved {
+            BackgammonGameView(
+                config: config,
+                players: players,
+                assignment: assignment,
+                opening: opening
+            )
+        } else {
+            // Fallback ultra seguro (no debería verse)
+            EmptyView()
+        }
+    }
+
+    // MARK: - Lógica
+
+    private func tirar() {
+        // Si ya resolvió, no vuelve a tirar (flujo limpio)
+        guard resolved == nil else { return }
+        guard !rolling else { return }
+
+        rolling = true
+
+        withAnimation(.easeInOut(duration: 1.1)) {
+            rotation += Double.random(in: 720...1440)
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.15) {
+            let p1 = Int.random(in: 1...6)
+            let p2 = Int.random(in: 1...6)
+
+            lastP1 = p1
+            lastP2 = p2
+
+            // Empate: no resolvemos, solo sube multiplicador y el usuario vuelve a tocar
+            if p1 == p2 {
+                tieMultiplier += 1
+                rolling = false
+                return
+            }
+
+            // Mapear dados a NEGRAS/BLANCAS según assignment
+            let blackDie: Int
+            let whiteDie: Int
+            if assignment.p1Color == .black {
+                blackDie = p1
+                whiteDie = p2
+            } else {
+                blackDie = p2
+                whiteDie = p1
+            }
+
+            let start = BackgammonStartDiceResult(
+                blackDie: blackDie,
+                whiteDie: whiteDie,
+                tieCount: max(0, tieMultiplier - 1)
+            )
+
+            resolved = BackgammonOpening(
+                config: config,
+                players: players,
+                assignment: assignment,
+                startResult: start
+            )
+
+            rolling = false
+        }
     }
 }

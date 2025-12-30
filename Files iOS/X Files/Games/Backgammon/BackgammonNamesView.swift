@@ -132,8 +132,14 @@ struct BackgammonNamesView: View {
                     nextAssignment = assignment
                     nextConfig = config ?? BackgammonConfig()
 
-                    // Activar navegación al siguiente paso (dados)
-                    goFirstRoll = true
+                    // ✅ FIX CLAVE:
+                    // 1) apagar el link de Colores para que no “choque” al volver
+                    goColors = false
+
+                    // 2) activar FirstRoll en el siguiente tick (después del dismiss)
+                    DispatchQueue.main.async {
+                        goFirstRoll = true
+                    }
                 },
                 isActive: $goColors
             ) { EmptyView() }
@@ -184,6 +190,8 @@ struct BackgammonNamesView: View {
         lockedP1 = a
         lockedP2 = b
 
+        // por si vienes de un run anterior
+        goFirstRoll = false
         goColors = true
     }
 
