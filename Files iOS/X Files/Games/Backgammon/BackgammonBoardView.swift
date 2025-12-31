@@ -12,16 +12,22 @@ struct BackgammonBoardView: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    // Turno / dados
+    // Turno
     @State private var turnNumber: Int
     @State private var current: BGPiece
-    @State private var die1: Int
-    @State private var die2: Int
+
+    // ✅ Dados como “usos restantes” (dobles = 4 movimientos)
+    @State private var remainingDice: [Int]
+
+    // ✅ BAR (fichas comidas)
+    @State private var barWhite: Int
+    @State private var barBlack: Int
 
     // Tablero: 24 posiciones (1...24)
     @State private var points: [Int: BGPointStack]
 
     // ✅ MVP B1: selección + destinos posibles
+    // selectedFrom: 1...24 para tablero, 0 = BAR del jugador actual
     @State private var selectedFrom: Int? = nil
     @State private var highlightedTo: Set<Int> = []
     @State private var lastComputedMoves: [Int: Int] = [:] // destino -> dado usado
@@ -40,8 +46,18 @@ struct BackgammonBoardView: View {
 
         _turnNumber = State(initialValue: 1)
         _current = State(initialValue: starter)
-        _die1 = State(initialValue: startResult.startMajor)
-        _die2 = State(initialValue: startResult.startMinor)
+
+        // ✅ Dados iniciales: normalmente 2; si por algún motivo fueran dobles, serían 4
+        let a = startResult.startMajor
+        let b = startResult.startMinor
+        if a == b {
+            _remainingDice = State(initialValue: [a, a, a, a])
+        } else {
+            _remainingDice = State(initialValue: [a, b])
+        }
+
+        _barWhite = State(initialValue: 0)
+        _barBlack = State(initialValue: 0)
 
         // ✅ Setup RELATIVO a Casa (abajo siempre 24/13/8/6)
         let homeColor: BGPiece = (colors.blackSide == .player1) ? .black : .white
@@ -95,9 +111,18 @@ struct BackgammonBoardView: View {
         }
         .navigationTitle("Tablero")
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true) // ✅ evita volver atrás por error
         .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                Button("Cerrar") { dismiss() }
+            // ✅ “Cerrar” discreto arriba a la derecha
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                .accessibilityLabel("Cerrar juego")
             }
         }
         .onAppear {
@@ -125,7 +150,7 @@ struct BackgammonBoardView: View {
 
                 Spacer()
 
-                // ✅ Color + jugador (Casa / Visita) para no confundir
+                // ✅ Color + jugador (Casa / Visita)
                 VStack(spacing: 2) {
                     Text(current == .white ? "BLANCAS" : "NEGRAS")
                         .font(.headline)
@@ -139,16 +164,40 @@ struct BackgammonBoardView: View {
                         .foregroundColor(.secondary)
                 }
 
+                // ✅ DADOS (muestra 2 cajas: los 2 primeros “usos” restantes)
                 HStack(spacing: 10) {
-                    diceBox(die1 == 0 ? "—" : "\(die1)")
+                    diceBox(displayDie(at: 0))
                     Text("+")
                         .font(.title3.bold())
                         .foregroundColor(.secondary)
-                    diceBox(die2 == 0 ? "—" : "\(die2)")
+                    diceBox(displayDie(at: 1))
                 }
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 10)
+
+            // ✅ BAR: si el jugador actual tiene fichas comidas, debe salir primero
+            if currentBarCount > 0 {
+                Button {
+                    // Selección desde BAR (origen 0)
+                    selectedFrom = 0
+                    computeHighlights(from: 0)
+                } label: {
+                    HStack(spacing: 10) {
+                        Text("BAR")
+                            .font(.footnote.bold())
+                        Text("x\(currentBarCount)")
+                            .font(.footnote.bold())
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color(.systemGray6))
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
+            }
         }
         .background(Color(.systemBackground))
     }
@@ -157,6 +206,11 @@ struct BackgammonBoardView: View {
         // ✅ Player 1 = Casa. El color de Casa lo define la ruleta.
         let homeColor: BGPiece = (colors.blackSide == .player1) ? .black : .white
         return (current == homeColor) ? casaName : visitaName
+    }
+
+    private func displayDie(at idx: Int) -> String {
+        guard idx < remainingDice.count else { return "—" }
+        return "\(remainingDice[idx])"
     }
 
     private func diceBox(_ text: String) -> some View {
@@ -266,20 +320,34 @@ struct BackgammonBoardView: View {
         return Color.clear
     }
 
-    // MARK: - Actions (MVP B1)
+    // MARK: - Actions (MVP B1 + BAR + DOBLES)
 
     private func handleTap(on index: Int) {
+        // Si tocó un destino válido (resaltado), ejecutamos movimiento
         if highlightedTo.contains(index), let from = selectedFrom, let usedDie = lastComputedMoves[index] {
-            applyMove(from: from, to: index, using: usedDie)
+            if from == 0 {
+                applyMoveFromBar(to: index, using: usedDie)
+            } else {
+                applyMove(from: from, to: index, using: usedDie)
+            }
             return
         }
 
+        // Regla BAR: si tienes fichas en BAR, NO puedes seleccionar desde el tablero
+        if currentBarCount > 0 {
+            // Permitimos seleccionar BAR desde el botón BAR (header). Si toca tablero: ignoramos o limpiamos.
+            clearSelection()
+            return
+        }
+
+        // Si tocó un origen válido, seleccionamos y calculamos destinos
         if canSelectFrom(index: index) {
             selectedFrom = index
             computeHighlights(from: index)
             return
         }
 
+        // Caso contrario: limpiar selección
         clearSelection()
     }
 
@@ -292,11 +360,33 @@ struct BackgammonBoardView: View {
         highlightedTo.removeAll()
         lastComputedMoves.removeAll()
 
-        let dice = availableDice
+        let dice = remainingDice
         guard !dice.isEmpty else { return }
 
         let dir = moveDirectionForCurrent()
 
+        // ✅ Desde BAR (index == 0): el “origen” no es un punto, se re-ingresa en el home board del rival
+        if index == 0 {
+            for d in dice {
+                let to: Int
+                if dir == -1 {
+                    // mueve 24→1 => entra por 24..19
+                    to = 25 - d
+                } else {
+                    // mueve 1→24 => entra por 1..6
+                    to = d
+                }
+
+                guard (1...24).contains(to) else { continue }
+                if isDestinationAllowed(to: to) {
+                    highlightedTo.insert(to)
+                    lastComputedMoves[to] = d
+                }
+            }
+            return
+        }
+
+        // ✅ Desde tablero normal
         for d in dice {
             let to = index + (dir * d)
             guard (1...24).contains(to) else { continue }
@@ -311,6 +401,8 @@ struct BackgammonBoardView: View {
         guard let dest = points[to] else { return true }
         if dest.count == 0 || dest.piece == .none { return true }
         if dest.piece == current { return true }
+
+        // bloqueado si hay 2+ del rival
         return dest.count <= 1
     }
 
@@ -318,35 +410,98 @@ struct BackgammonBoardView: View {
         guard var src = points[from], var dst = points[to] else { return }
         guard src.count > 0, src.piece == current else { return }
 
+        // Consumir ficha en origen
         src.count -= 1
         if src.count == 0 { src.piece = .none }
         points[from] = src
 
+        // Destino
         if dst.count == 0 || dst.piece == .none {
             dst.piece = current
             dst.count = 1
         } else if dst.piece == current {
             dst.count += 1
         } else {
-            dst.piece = current
-            dst.count = 1
+            // ✅ CAPTURA REAL: si había 1 del rival -> lo mandamos al BAR
+            if dst.count == 1 {
+                addToBar(piece: opponent(of: current), count: 1)
+                dst.piece = current
+                dst.count = 1
+            } else {
+                // No debería pasar por isDestinationAllowed, pero por seguridad:
+                return
+            }
         }
         points[to] = dst
 
-        if die1 == dieUsed {
-            die1 = 0
-        } else if die2 == dieUsed {
-            die2 = 0
+        consumeDie(dieUsed)
+
+        // Recalcular highlights
+        postMoveSelection(nextFocusPoint: to)
+    }
+
+    private func applyMoveFromBar(to: Int, using dieUsed: Int) {
+        // Debe tener bar > 0
+        guard currentBarCount > 0 else { return }
+        guard var dst = points[to] else { return }
+
+        // Destino (con captura)
+        if dst.count == 0 || dst.piece == .none {
+            dst.piece = current
+            dst.count = 1
+        } else if dst.piece == current {
+            dst.count += 1
         } else {
-            if die1 != 0 { die1 = 0 } else { die2 = 0 }
+            if dst.count == 1 {
+                addToBar(piece: opponent(of: current), count: 1)
+                dst.piece = current
+                dst.count = 1
+            } else {
+                return
+            }
+        }
+        points[to] = dst
+
+        // Reducir BAR del actual
+        addToBar(piece: current, count: -1)
+
+        consumeDie(dieUsed)
+
+        // Si aún quedan fichas en BAR, seguimos obligando a salir de BAR
+        if currentBarCount > 0, !remainingDice.isEmpty {
+            selectedFrom = 0
+            computeHighlights(from: 0)
+        } else {
+            postMoveSelection(nextFocusPoint: to)
+        }
+    }
+
+    private func consumeDie(_ dieUsed: Int) {
+        // ✅ Quita 1 “uso” de ese dado (dobles funcionan solos)
+        if let i = remainingDice.firstIndex(of: dieUsed) {
+            remainingDice.remove(at: i)
+        } else if !remainingDice.isEmpty {
+            // fallback ultra seguro
+            remainingDice.removeFirst()
+        }
+    }
+
+    private func postMoveSelection(nextFocusPoint: Int) {
+        if remainingDice.isEmpty {
+            clearSelection()
+            return
         }
 
-        if availableDice.isEmpty {
-            clearSelection()
-        } else {
-            selectedFrom = to
-            computeHighlights(from: to)
+        // Si aparece BAR (por captura previa), la regla obliga
+        if currentBarCount > 0 {
+            selectedFrom = 0
+            computeHighlights(from: 0)
+            return
         }
+
+        // UX: mantenemos foco en la ficha movida
+        selectedFrom = nextFocusPoint
+        computeHighlights(from: nextFocusPoint)
     }
 
     private func clearSelection() {
@@ -357,12 +512,9 @@ struct BackgammonBoardView: View {
 
     // MARK: - Turn management
 
-    private var availableDice: [Int] {
-        [die1, die2].filter { $0 > 0 }
-    }
-
     private var canEndTurn: Bool {
-        die1 == 0 && die2 == 0
+        // Turno termina cuando ya no quedan “usos” de dados
+        return remainingDice.isEmpty
     }
 
     private var nextTurnButtonTitle: String {
@@ -370,17 +522,37 @@ struct BackgammonBoardView: View {
     }
 
     private var boardHintText: String {
-        if canEndTurn { return "Dados consumidos. Puedes pasar al siguiente turno." }
-        if selectedFrom == nil { return "Toca una casilla con tus fichas para ver destinos posibles." }
+        if canEndTurn {
+            return "Dados consumidos. Puedes pasar al siguiente turno."
+        }
+        if currentBarCount > 0 {
+            return "Tienes fichas en BAR. Debes sacarlas primero."
+        }
+        if selectedFrom == nil {
+            return "Toca una casilla con tus fichas para ver destinos posibles."
+        }
         return "Elige un destino resaltado en verde."
     }
 
     private func nextTurn() {
         turnNumber += 1
         current = (current == .white) ? .black : .white
-        die1 = Int.random(in: 1...6)
-        die2 = Int.random(in: 1...6)
+
+        let d1 = Int.random(in: 1...6)
+        let d2 = Int.random(in: 1...6)
+        if d1 == d2 {
+            remainingDice = [d1, d1, d1, d1]
+        } else {
+            remainingDice = [d1, d2]
+        }
+
         clearSelection()
+
+        // Si el nuevo jugador tiene BAR, lo forzamos inmediatamente
+        if currentBarCount > 0 {
+            selectedFrom = 0
+            computeHighlights(from: 0)
+        }
     }
 
     // MARK: - Dirección (Casa)
@@ -389,6 +561,35 @@ struct BackgammonBoardView: View {
         // ✅ Regla: La Casa (P1) va 24 → 1, y es del color asignado por la ruleta.
         let homeColor: BGPiece = (colors.blackSide == .player1) ? .black : .white
         return (current == homeColor) ? -1 : 1
+    }
+
+    // MARK: - BAR helpers
+
+    private var currentBarCount: Int {
+        barCount(for: current)
+    }
+
+    private func barCount(for piece: BGPiece) -> Int {
+        switch piece {
+        case .white: return barWhite
+        case .black: return barBlack
+        case .none:  return 0
+        }
+    }
+
+    private func addToBar(piece: BGPiece, count: Int) {
+        switch piece {
+        case .white:
+            barWhite = max(0, barWhite + count)
+        case .black:
+            barBlack = max(0, barBlack + count)
+        case .none:
+            break
+        }
+    }
+
+    private func opponent(of piece: BGPiece) -> BGPiece {
+        piece == .white ? .black : .white
     }
 
     // MARK: - Standard setup (RELATIVO A CASA)
