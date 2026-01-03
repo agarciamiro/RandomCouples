@@ -12,3 +12,5 @@ Files iOS/Others/**
 
 # Ignore local scratch folder at repo root
 Others/
+# Local artifacts
+RandomCouples.xcodeproj-iMac/
