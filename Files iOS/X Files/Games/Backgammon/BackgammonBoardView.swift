@@ -242,9 +242,10 @@ struct BackgammonBoardView: View {
     private enum BarSlot { case topVisita, bottomCasa }
 
     private func boardGrid(availableWidth: CGFloat) -> some View {
-        let barW: CGFloat = 12
+        let barW: CGFloat = 34
         let spacing: CGFloat = 6
-        let usable = max(0, availableWidth) // ✅ NO restamos padding aquí (ya hay padding afuera)
+        let hPad: CGFloat = 32
+        let usable = max(0, availableWidth - hPad)
         let cellH: CGFloat = 50
         let cellW: CGFloat = max(18, floor((usable - barW - (spacing * 12)) / 12))
 
