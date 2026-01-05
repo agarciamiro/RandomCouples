@@ -126,7 +126,7 @@ struct BackgammonBoardView: View {
                     Image(systemName: "xmark")
                         .font(.caption.bold())
                         .padding(8)
-                        .background(Color(.systemGray5))
+                        .background(Color(.systemGray4))
                         .clipShape(Circle())
                 }
                 .accessibilityLabel("Cerrar")
@@ -174,7 +174,7 @@ struct BackgammonBoardView: View {
                         .font(.headline)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
-                        .background(Color(.systemGray5))
+                        .background(Color(.systemGray4))
                         .clipShape(Capsule())
 
                     Text(nameForCurrent())
@@ -233,7 +233,7 @@ struct BackgammonBoardView: View {
         Text(text)
             .font(.title3.bold())
             .frame(width: 46, height: 46)
-            .background(Color(.systemGray6))
+            .background(Color(.systemGray5))
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
@@ -308,7 +308,7 @@ struct BackgammonBoardView: View {
 
         return VStack(spacing: 2) {
             Rectangle()
-                .fill(Color.gray.opacity(0.22))
+                .fill(Color.gray.opacity(0.30))
                 .frame(width: width, height: height)
                 .cornerRadius(8)
                 .overlay(
@@ -345,7 +345,7 @@ struct BackgammonBoardView: View {
         return VStack(spacing: 4) {
             ZStack {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color(.systemGray6))
+                    .fill(Color(.systemGray5))
                     .overlay(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .stroke(borderColor(isSelected: isSelected, isHighlighted: isHighlighted),
