@@ -92,7 +92,7 @@ struct BackgammonBoardView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     ZStack {
                         boardGrid(availableWidth: geo.size.width)
-                            .frame(minWidth: geo.size.width, alignment: .center) // ✅ centra y evita “corte” a la derecha
+                            .frame(minWidth: geo.size.width, alignment: .center) // ✅ clave: centra y evita “corte” a la derecha
                             .padding(.horizontal, 16)
                             .padding(.vertical, 14)
                             .opacity(barHasPiecesForCurrent ? 0.88 : 1.0)
@@ -144,6 +144,7 @@ struct BackgammonBoardView: View {
         }
         .onAppear {
             clearSelection()
+            // Si hay BAR bloqueado, no “auto-salta”: solo mostramos el estado y habilitamos continuar
             if barHasPiecesForCurrent && barHasNoLegalEntry {
                 clearSelection()
             }
@@ -184,11 +185,11 @@ struct BackgammonBoardView: View {
                 // CENTRO (DADOS + DIRECCIÓN)
                 VStack(spacing: 6) {
                     HStack(spacing: 10) {
-                        diceBox(diceText(index: 0))
+                        dieBox(value: dieValueForUI(index: 0))
                         Text("+")
                             .font(.title3.bold())
                             .foregroundColor(.secondary)
-                        diceBox(diceText(index: 1))
+                        dieBox(value: dieValueForUI(index: 1))
                     }
 
                     Text(directionIndicatorText)
@@ -228,7 +229,7 @@ struct BackgammonBoardView: View {
                     .padding(.horizontal, 16)
             }
 
-            // ✅ Banner persistente: TURNO PERDIDO
+            // ✅ Banner persistente: TURNO PERDIDO (hasta que el usuario toque continuar)
             if barHasPiecesForCurrent && barHasNoLegalEntry {
                 Text("Turno perdido — BAR bloqueado (no hay jugadas legales).")
                     .font(.footnote.bold())
@@ -291,32 +292,96 @@ struct BackgammonBoardView: View {
         return (current == casaPiece) ? casaName : visitaName
     }
 
-    private func diceText(index: Int) -> String {
-        if index >= 2 { return "—" }
-        if remainingDiceValues.isEmpty { return "—" }
+    // MARK: - Dados (UI con pips, Opción B)
 
-        let visible: [Int]
-        if dice.count == 4 { visible = [dice[0], dice[0]] }
-        else { visible = dice }
+    private func dieValueForUI(index: Int) -> Int? {
+        // Si no hay dados disponibles, mostrar vacío
+        guard !remainingDiceValues.isEmpty else { return nil }
+        guard index < 2 else { return nil }
 
-        if index >= visible.count { return "—" }
+        // Si son dobles (4), mostramos 2 dados iguales (visual)
+        let visible: [Int] = (dice.count == 4) ? [dice[0], dice[0]] : dice
+        guard index < visible.count else { return nil }
 
         let v = visible[index]
-        let anyLeft = hasAnyDieLeft(with: v)
-        return anyLeft ? "\(v)" : "—"
+        return hasAnyDieLeft(with: v) ? v : nil
     }
 
-    private func diceBox(_ text: String) -> some View {
-        Text(text)
-            .font(.title3.bold())
+    private func dieBox(value: Int?) -> some View {
+        DieView(value: value, themeIsBlack: (current == .black))
             .frame(width: 46, height: 46)
-            .background(Color(.systemGray6))
-            .overlay(
+            .accessibilityLabel(value == nil ? "Dado vacío" : "Dado \(value!)")
+    }
+
+    private struct DieView: View {
+        let value: Int?
+        let themeIsBlack: Bool
+
+        var body: some View {
+            // Opción B: dado “tema” según turno
+            let fill: Color = themeIsBlack ? Color(.systemGray2) : Color(.systemGray6)
+            let stroke: Color = Color(.systemGray4)
+            let pip: Color = themeIsBlack ? .white : .black
+
+            ZStack {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(Color(.systemGray4), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .foregroundColor(.primary)
+                    .fill(fill)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .stroke(stroke, lineWidth: 1)
+                    )
+
+                if let v = value, (1...6).contains(v) {
+                    pipGrid(value: v, pipColor: pip)
+                        .padding(7)
+                } else {
+                    Text("—")
+                        .font(.title3.bold())
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+
+        private func pipDot(_ on: Bool, _ color: Color) -> some View {
+            Circle()
+                .fill(color)
+                .frame(width: 6, height: 6)
+                .opacity(on ? 1.0 : 0.0)
+        }
+
+        private func pipGrid(value: Int, pipColor: Color) -> some View {
+            // 3x3: TL, TC, TR / ML, MC, MR / BL, BC, BR
+            let tl = (value == 2 || value == 3 || value == 4 || value == 5 || value == 6)
+            let tr = tl
+            let bl = tl
+            let br = tl
+
+            let mc = (value == 1 || value == 3 || value == 5)
+            let ml = (value == 6)
+            let mr = (value == 6)
+
+            // (TC/BC no se usan en este tamaño)
+            let tc = false
+            let bc = false
+
+            return VStack(spacing: 6) {
+                HStack(spacing: 6) {
+                    pipDot(tl, pipColor)
+                    pipDot(tc, pipColor)
+                    pipDot(tr, pipColor)
+                }
+                HStack(spacing: 6) {
+                    pipDot(ml, pipColor)
+                    pipDot(mc, pipColor)
+                    pipDot(mr, pipColor)
+                }
+                HStack(spacing: 6) {
+                    pipDot(bl, pipColor)
+                    pipDot(bc, pipColor)
+                    pipDot(br, pipColor)
+                }
+            }
+        }
     }
 
     // MARK: - Board grid (2 filas x 12)
@@ -343,6 +408,7 @@ struct BackgammonBoardView: View {
                     pointCell(index: idx, cellW: cellW, cellH: cellH)
                 }
 
+                // ✅ BAR SUPERIOR = VISITA (y muestra su color real con B/N)
                 barCell(slot: .topVisita, width: barW, height: cellH)
 
                 ForEach(topRight, id: \.self) { idx in
@@ -355,6 +421,7 @@ struct BackgammonBoardView: View {
                     pointCell(index: idx, cellW: cellW, cellH: cellH)
                 }
 
+                // ✅ BAR INFERIOR = CASA (y muestra su color real con B/N)
                 barCell(slot: .bottomCasa, width: barW, height: cellH)
 
                 ForEach(botRight, id: \.self) { idx in
@@ -397,8 +464,13 @@ struct BackgammonBoardView: View {
         let label: String = (slot == .bottomCasa) ? "CASA" : "VISITA"
         let count = barCount(for: ownerPiece)
 
+        // ✅ Letra correcta: B=Blancas, N=Negras (según el “dueño” del BAR)
         let ownerLetter: String = (ownerPiece == .black) ? "N" : "B"
 
+        // ✅ Solo es “seleccionable” si:
+        // 1) es el BAR del jugador actual (current == ownerPiece)
+        // 2) hay fichas ahí
+        // 3) existe al menos una entrada legal
         let selectable = (current == ownerPiece) && (count > 0) && !barHasNoLegalEntry
 
         let isCurrentBar = (current == ownerPiece)
@@ -411,6 +483,7 @@ struct BackgammonBoardView: View {
 
         let borderWidth: CGFloat = needsAttention ? 3 : 0
 
+        // Visual de fichas en BAR (pips + puck)
         let visiblePips = min(count, 5)
         let extra = max(0, count - visiblePips)
         let isBlack = (ownerPiece == .black)
@@ -519,6 +592,7 @@ struct BackgammonBoardView: View {
     // MARK: - Actions (MVP B1 + BAR)
 
     private func handleTap(on index: Int) {
+        // ✅ Si tocó un destino válido, ejecutamos movimiento
         if highlightedTo.contains(index),
            let from = selectedFrom,
            let usedDieValue = lastComputedMoves[index] {
@@ -526,11 +600,13 @@ struct BackgammonBoardView: View {
             return
         }
 
+        // ✅ Si hay BAR del jugador actual, no se puede seleccionar otra cosa
         if barHasPiecesForCurrent {
             clearSelection()
             return
         }
 
+        // ✅ Selección normal en tablero
         if canSelectFrom(index: index) {
             selectedFrom = index
             computeHighlights(from: index)
@@ -552,6 +628,7 @@ struct BackgammonBoardView: View {
         let diceValues = remainingDiceValues
         guard !diceValues.isEmpty else { return }
 
+        // ✅ Caso BAR
         if index == Self.barSourceIndex {
             for v in diceValues {
                 let entry = barEntryPoint(forDie: v)
@@ -564,6 +641,7 @@ struct BackgammonBoardView: View {
             return
         }
 
+        // ✅ Caso normal
         let dir = moveDirectionForCurrent()
         for v in diceValues {
             let to = index + (dir * v)
@@ -579,12 +657,14 @@ struct BackgammonBoardView: View {
         guard let dest = points[to] else { return true }
         if dest.count == 0 || dest.piece == .none { return true }
         if dest.piece == current { return true }
+        // Bloqueado si hay 2+ del rival
         return dest.count <= 1
     }
 
     private func applyMove(from: Int, to: Int, usingDieValue dieValue: Int) {
         consumeOneDie(value: dieValue)
 
+        // ✅ Mover desde BAR
         if from == Self.barSourceIndex {
             decrementBarForCurrent()
             applyArrival(to: to)
@@ -592,6 +672,7 @@ struct BackgammonBoardView: View {
             return
         }
 
+        // ✅ Mover desde tablero
         guard var src = points[from], var dst = points[to] else { return }
         guard src.count > 0, src.piece == current else { return }
 
@@ -599,6 +680,7 @@ struct BackgammonBoardView: View {
         if src.count == 0 { src.piece = .none }
         points[from] = src
 
+        // Llegada
         if dst.count == 0 || dst.piece == .none {
             dst.piece = current
             dst.count = 1
@@ -606,7 +688,7 @@ struct BackgammonBoardView: View {
             dst.count += 1
         } else {
             if dst.count == 1 {
-                incrementBarForPiece(dst.piece)
+                incrementBarForPiece(dst.piece) // capturado va al BAR por su COLOR real
                 dst.piece = current
                 dst.count = 1
             }
@@ -635,6 +717,7 @@ struct BackgammonBoardView: View {
     }
 
     private func postMoveSelection(nextFrom: Int) {
+        // Si aún hay BAR del jugador actual, forzar selección en BAR
         if barHasPiecesForCurrent {
             selectedFrom = Self.barSourceIndex
             computeHighlights(from: Self.barSourceIndex)
@@ -688,6 +771,7 @@ struct BackgammonBoardView: View {
     // MARK: - Turn management
 
     private var canEndTurn: Bool {
+        // ✅ Si BAR está bloqueado: se permite terminar turno aunque queden dados
         if barHasPiecesForCurrent && barHasNoLegalEntry { return true }
         return remainingDiceValues.isEmpty
     }
@@ -719,6 +803,7 @@ struct BackgammonBoardView: View {
         turnNumber += 1
         current = (current == .white) ? .black : .white
 
+        // Nuevos dados
         let d1 = Int.random(in: 1...6)
         let d2 = Int.random(in: 1...6)
         if d1 == d2 {
@@ -731,6 +816,7 @@ struct BackgammonBoardView: View {
 
         clearSelection()
 
+        // Si el nuevo jugador entra con BAR bloqueado, banner queda fijo (no auto-skip)
         if barHasPiecesForCurrent && barHasNoLegalEntry {
             clearSelection()
         }
@@ -739,6 +825,7 @@ struct BackgammonBoardView: View {
     // MARK: - Dirección (Casa)
 
     private func moveDirectionForCurrent() -> Int {
+        // ✅ La Casa va 24 → 1; Visita va 1 → 24
         return (current == casaPiece) ? -1 : 1
     }
 
@@ -791,11 +878,13 @@ struct BackgammonBoardView: View {
 
         let awayColor: BGPiece = (homeColor == .black) ? .white : .black
 
+        // Casa (abajo): 2 en 24, 5 en 13, 3 en 8, 5 en 6
         p[24] = BGPointStack(piece: homeColor, count: 2)
         p[13] = BGPointStack(piece: homeColor, count: 5)
         p[8]  = BGPointStack(piece: homeColor, count: 3)
         p[6]  = BGPointStack(piece: homeColor, count: 5)
 
+        // Visita (arriba): 2 en 1, 5 en 12, 3 en 17, 5 en 19
         p[1]  = BGPointStack(piece: awayColor, count: 2)
         p[12] = BGPointStack(piece: awayColor, count: 5)
         p[17] = BGPointStack(piece: awayColor, count: 3)
