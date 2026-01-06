@@ -209,6 +209,17 @@ struct BackgammonBoardView: View {
             }
             .padding(.horizontal, 16)
 
+            // ✅ Feedback cuando hay BAR (si no está bloqueado)
+            if barHasPiecesForCurrent && !barHasNoLegalEntry {
+                Text("Debes salir del BAR primero.")
+                    .font(.footnote.bold())
+                    .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity)
+                    .background(Color.blue.opacity(0.12))
+                    .cornerRadius(12)
+                    .padding(.horizontal, 16)
+            }
+
             // ✅ Banner persistente: TURNO PERDIDO (hasta que el usuario toque continuar)
             if barHasPiecesForCurrent && barHasNoLegalEntry {
                 Text("Turno perdido — BAR bloqueado (no hay jugadas legales).")
@@ -323,6 +334,26 @@ struct BackgammonBoardView: View {
         }
     }
 
+    private func barPip(isBlack: Bool) -> some View {
+        Circle()
+            .fill(isBlack ? Color(.label) : Color(.systemBackground))
+            .overlay(Circle().stroke(Color(.separator), lineWidth: 1))
+            .frame(width: 10, height: 10)
+    }
+
+    private func barPuck(count: Int, isBlack: Bool) -> some View {
+        ZStack {
+            Circle()
+                .fill(isBlack ? Color(.label) : Color(.systemBackground))
+                .overlay(Circle().stroke(Color(.separator), lineWidth: 1))
+
+            Text("\(count)")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundColor(isBlack ? .white : .black)
+        }
+        .frame(width: 22, height: 22)
+    }
+
     private func barCell(slot: BarSlot, width: CGFloat, height: CGFloat) -> some View {
         let ownerPiece: BGPiece = (slot == .bottomCasa) ? casaPiece : visitaPiece
         let label: String = (slot == .bottomCasa) ? "CASA" : "VISITA"
@@ -337,6 +368,21 @@ struct BackgammonBoardView: View {
         // 3) existe al menos una entrada legal
         let selectable = (current == ownerPiece) && (count > 0) && !barHasNoLegalEntry
 
+        // ✅ Resaltado visual del BAR cuando corresponde
+        let isCurrentBar = (current == ownerPiece)
+        let needsAttention = isCurrentBar && (count > 0)
+        let isBlocked = needsAttention && barHasNoLegalEntry
+
+        let borderColor: Color =
+            isBlocked ? Color.orange :
+            (needsAttention ? Color.blue : Color.clear)
+
+        let borderWidth: CGFloat = needsAttention ? 3 : 0
+
+        let visiblePips = min(count, 5)
+        let extra = max(0, count - visiblePips)
+        let isBlack = (ownerPiece == .black)
+
         return VStack(spacing: 2) {
             Rectangle()
                 .fill(Color.gray.opacity(0.30))
@@ -344,7 +390,27 @@ struct BackgammonBoardView: View {
                 .cornerRadius(8)
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
-                        .stroke(selectable ? Color.blue : Color.clear, lineWidth: selectable ? 2 : 0)
+                        .stroke(borderColor, lineWidth: borderWidth)
+                )
+                .overlay(
+                    // ✅ Visual del BAR: bolitas + puck con número
+                    ZStack {
+                        if count > 0 {
+                            VStack(spacing: 3) {
+                                ForEach(0..<visiblePips, id: \.self) { _ in
+                                    barPip(isBlack: isBlack)
+                                }
+                                if extra > 0 {
+                                    Text("+\(extra)")
+                                        .font(.system(size: 8, weight: .bold))
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            .padding(.vertical, 4)
+
+                            barPuck(count: count, isBlack: isBlack)
+                        }
+                    }
                 )
                 .contentShape(Rectangle())
                 .onTapGesture {
