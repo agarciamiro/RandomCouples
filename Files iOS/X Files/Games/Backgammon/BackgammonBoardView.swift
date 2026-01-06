@@ -157,7 +157,7 @@ struct BackgammonBoardView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 10)
 
-            // ✅ Layout nuevo: izquierda info, centro dados, derecha jugador
+            // ✅ Layout: izquierda info, centro dados + dirección, derecha jugador
             HStack(alignment: .center, spacing: 14) {
 
                 // IZQUIERDA
@@ -172,13 +172,22 @@ struct BackgammonBoardView: View {
 
                 Spacer(minLength: 0)
 
-                // CENTRO (DADOS)
-                HStack(spacing: 10) {
-                    diceBox(diceText(index: 0))
-                    Text("+")
-                        .font(.title3.bold())
+                // CENTRO (DADOS + DIRECCIÓN)
+                VStack(spacing: 6) {
+                    HStack(spacing: 10) {
+                        diceBox(diceText(index: 0))
+                        Text("+")
+                            .font(.title3.bold())
+                            .foregroundColor(.secondary)
+                        diceBox(diceText(index: 1))
+                    }
+
+                    // ✅ Indicador visual de dirección (C)
+                    Text(directionIndicatorText)
+                        .font(.caption2.bold())
                         .foregroundColor(.secondary)
-                    diceBox(diceText(index: 1))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.9)
                 }
                 .frame(maxWidth: .infinity, alignment: .center)
 
@@ -216,6 +225,14 @@ struct BackgammonBoardView: View {
         }
         .padding(.bottom, 10)
         .background(Color(.systemBackground))
+    }
+
+    private var directionIndicatorText: String {
+        if current == casaPiece {
+            return "⬅️ CASA: 24 → 1"
+        } else {
+            return "VISITA: 1 → 24 ➡️"
+        }
     }
 
     private func nameForCurrent() -> String {
