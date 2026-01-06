@@ -90,10 +90,20 @@ struct BackgammonBoardView: View {
 
             GeometryReader { geo in
                 ScrollView(.horizontal, showsIndicators: false) {
-                    boardGrid(availableWidth: geo.size.width)
-                        .frame(minWidth: geo.size.width, alignment: .center) // ✅ clave: centra y evita “corte” a la derecha
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 14)
+                    ZStack {
+                        boardGrid(availableWidth: geo.size.width)
+                            .frame(minWidth: geo.size.width, alignment: .center) // ✅ centra y evita “corte” a la derecha
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                            .opacity(barHasPiecesForCurrent ? 0.88 : 1.0)
+
+                        // ✅ Overlay claro (NO bloquea el BAR)
+                        if barHasPiecesForCurrent {
+                            barOverlayHint
+                                .padding(.horizontal, 24)
+                                .allowsHitTesting(false)
+                        }
+                    }
                 }
             }
 
@@ -134,7 +144,6 @@ struct BackgammonBoardView: View {
         }
         .onAppear {
             clearSelection()
-            // Si hay BAR bloqueado, no “auto-salta”: solo mostramos el estado y habilitamos continuar
             if barHasPiecesForCurrent && barHasNoLegalEntry {
                 clearSelection()
             }
@@ -182,7 +191,6 @@ struct BackgammonBoardView: View {
                         diceBox(diceText(index: 1))
                     }
 
-                    // ✅ Indicador visual de dirección (C)
                     Text(directionIndicatorText)
                         .font(.caption2.bold())
                         .foregroundColor(.secondary)
@@ -220,7 +228,7 @@ struct BackgammonBoardView: View {
                     .padding(.horizontal, 16)
             }
 
-            // ✅ Banner persistente: TURNO PERDIDO (hasta que el usuario toque continuar)
+            // ✅ Banner persistente: TURNO PERDIDO
             if barHasPiecesForCurrent && barHasNoLegalEntry {
                 Text("Turno perdido — BAR bloqueado (no hay jugadas legales).")
                     .font(.footnote.bold())
@@ -236,6 +244,39 @@ struct BackgammonBoardView: View {
         }
         .padding(.bottom, 10)
         .background(Color(.systemBackground))
+    }
+
+    private var barOverlayHint: some View {
+        let whereText = (current == casaPiece) ? "abajo" : "arriba"
+        if barHasNoLegalEntry {
+            return VStack(spacing: 10) {
+                Text("BAR bloqueado")
+                    .font(.headline.bold())
+                Text("No hay entradas legales.\nTurno perdido: toca **Continuar**.")
+                    .font(.footnote)
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(.secondary)
+            }
+            .padding(14)
+            .frame(maxWidth: 320)
+            .background(.ultraThinMaterial)
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.orange.opacity(0.55), lineWidth: 2))
+            .cornerRadius(14)
+        } else {
+            return VStack(spacing: 10) {
+                Text("BAR obligatorio")
+                    .font(.headline.bold())
+                Text("Toca el **BAR \(whereText)** para entrar al tablero.")
+                    .font(.footnote)
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(.secondary)
+            }
+            .padding(14)
+            .frame(maxWidth: 320)
+            .background(.ultraThinMaterial)
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.blue.opacity(0.55), lineWidth: 2))
+            .cornerRadius(14)
+        }
     }
 
     private var directionIndicatorText: String {
@@ -265,7 +306,6 @@ struct BackgammonBoardView: View {
         return anyLeft ? "\(v)" : "—"
     }
 
-    // ✅ Dados ligeramente grises para mejor contraste
     private func diceBox(_ text: String) -> some View {
         Text(text)
             .font(.title3.bold())
@@ -303,7 +343,6 @@ struct BackgammonBoardView: View {
                     pointCell(index: idx, cellW: cellW, cellH: cellH)
                 }
 
-                // ✅ BAR SUPERIOR = VISITA (y muestra su color real con B/N)
                 barCell(slot: .topVisita, width: barW, height: cellH)
 
                 ForEach(topRight, id: \.self) { idx in
@@ -316,7 +355,6 @@ struct BackgammonBoardView: View {
                     pointCell(index: idx, cellW: cellW, cellH: cellH)
                 }
 
-                // ✅ BAR INFERIOR = CASA (y muestra su color real con B/N)
                 barCell(slot: .bottomCasa, width: barW, height: cellH)
 
                 ForEach(botRight, id: \.self) { idx in
@@ -359,16 +397,10 @@ struct BackgammonBoardView: View {
         let label: String = (slot == .bottomCasa) ? "CASA" : "VISITA"
         let count = barCount(for: ownerPiece)
 
-        // ✅ Letra correcta: B=Blancas, N=Negras (según el “dueño” del BAR)
         let ownerLetter: String = (ownerPiece == .black) ? "N" : "B"
 
-        // ✅ Solo es “seleccionable” si:
-        // 1) es el BAR del jugador actual (current == ownerPiece)
-        // 2) hay fichas ahí
-        // 3) existe al menos una entrada legal
         let selectable = (current == ownerPiece) && (count > 0) && !barHasNoLegalEntry
 
-        // ✅ Resaltado visual del BAR cuando corresponde
         let isCurrentBar = (current == ownerPiece)
         let needsAttention = isCurrentBar && (count > 0)
         let isBlocked = needsAttention && barHasNoLegalEntry
@@ -393,7 +425,6 @@ struct BackgammonBoardView: View {
                         .stroke(borderColor, lineWidth: borderWidth)
                 )
                 .overlay(
-                    // ✅ Visual del BAR: bolitas + puck con número
                     ZStack {
                         if count > 0 {
                             VStack(spacing: 3) {
@@ -474,6 +505,9 @@ struct BackgammonBoardView: View {
         .frame(width: cellW, height: cellH)
         .contentShape(Rectangle())
         .onTapGesture { handleTap(on: index) }
+        // ✅ BLOQUEO DE TAPS EN EL TABLERO cuando hay BAR
+        .allowsHitTesting(!barHasPiecesForCurrent)
+        .opacity(barHasPiecesForCurrent ? 0.55 : 1.0)
     }
 
     private func borderColor(isSelected: Bool, isHighlighted: Bool) -> Color {
@@ -485,7 +519,6 @@ struct BackgammonBoardView: View {
     // MARK: - Actions (MVP B1 + BAR)
 
     private func handleTap(on index: Int) {
-        // ✅ Si tocó un destino válido, ejecutamos movimiento
         if highlightedTo.contains(index),
            let from = selectedFrom,
            let usedDieValue = lastComputedMoves[index] {
@@ -493,13 +526,11 @@ struct BackgammonBoardView: View {
             return
         }
 
-        // ✅ Si hay BAR del jugador actual, no se puede seleccionar otra cosa
         if barHasPiecesForCurrent {
             clearSelection()
             return
         }
 
-        // ✅ Selección normal en tablero
         if canSelectFrom(index: index) {
             selectedFrom = index
             computeHighlights(from: index)
@@ -521,7 +552,6 @@ struct BackgammonBoardView: View {
         let diceValues = remainingDiceValues
         guard !diceValues.isEmpty else { return }
 
-        // ✅ Caso BAR
         if index == Self.barSourceIndex {
             for v in diceValues {
                 let entry = barEntryPoint(forDie: v)
@@ -534,7 +564,6 @@ struct BackgammonBoardView: View {
             return
         }
 
-        // ✅ Caso normal
         let dir = moveDirectionForCurrent()
         for v in diceValues {
             let to = index + (dir * v)
@@ -550,14 +579,12 @@ struct BackgammonBoardView: View {
         guard let dest = points[to] else { return true }
         if dest.count == 0 || dest.piece == .none { return true }
         if dest.piece == current { return true }
-        // Bloqueado si hay 2+ del rival
         return dest.count <= 1
     }
 
     private func applyMove(from: Int, to: Int, usingDieValue dieValue: Int) {
         consumeOneDie(value: dieValue)
 
-        // ✅ Mover desde BAR
         if from == Self.barSourceIndex {
             decrementBarForCurrent()
             applyArrival(to: to)
@@ -565,7 +592,6 @@ struct BackgammonBoardView: View {
             return
         }
 
-        // ✅ Mover desde tablero
         guard var src = points[from], var dst = points[to] else { return }
         guard src.count > 0, src.piece == current else { return }
 
@@ -573,7 +599,6 @@ struct BackgammonBoardView: View {
         if src.count == 0 { src.piece = .none }
         points[from] = src
 
-        // Llegada
         if dst.count == 0 || dst.piece == .none {
             dst.piece = current
             dst.count = 1
@@ -581,7 +606,7 @@ struct BackgammonBoardView: View {
             dst.count += 1
         } else {
             if dst.count == 1 {
-                incrementBarForPiece(dst.piece) // capturado va al BAR por su COLOR real
+                incrementBarForPiece(dst.piece)
                 dst.piece = current
                 dst.count = 1
             }
@@ -610,7 +635,6 @@ struct BackgammonBoardView: View {
     }
 
     private func postMoveSelection(nextFrom: Int) {
-        // Si aún hay BAR del jugador actual, forzar selección en BAR
         if barHasPiecesForCurrent {
             selectedFrom = Self.barSourceIndex
             computeHighlights(from: Self.barSourceIndex)
@@ -664,7 +688,6 @@ struct BackgammonBoardView: View {
     // MARK: - Turn management
 
     private var canEndTurn: Bool {
-        // ✅ Si BAR está bloqueado: se permite terminar turno aunque queden dados
         if barHasPiecesForCurrent && barHasNoLegalEntry { return true }
         return remainingDiceValues.isEmpty
     }
@@ -696,7 +719,6 @@ struct BackgammonBoardView: View {
         turnNumber += 1
         current = (current == .white) ? .black : .white
 
-        // Nuevos dados
         let d1 = Int.random(in: 1...6)
         let d2 = Int.random(in: 1...6)
         if d1 == d2 {
@@ -709,7 +731,6 @@ struct BackgammonBoardView: View {
 
         clearSelection()
 
-        // Si el nuevo jugador entra con BAR bloqueado, banner queda fijo (no auto-skip)
         if barHasPiecesForCurrent && barHasNoLegalEntry {
             clearSelection()
         }
@@ -718,7 +739,6 @@ struct BackgammonBoardView: View {
     // MARK: - Dirección (Casa)
 
     private func moveDirectionForCurrent() -> Int {
-        // ✅ La Casa va 24 → 1; Visita va 1 → 24
         return (current == casaPiece) ? -1 : 1
     }
 
@@ -771,13 +791,11 @@ struct BackgammonBoardView: View {
 
         let awayColor: BGPiece = (homeColor == .black) ? .white : .black
 
-        // Casa (abajo): 2 en 24, 5 en 13, 3 en 8, 5 en 6
         p[24] = BGPointStack(piece: homeColor, count: 2)
         p[13] = BGPointStack(piece: homeColor, count: 5)
         p[8]  = BGPointStack(piece: homeColor, count: 3)
         p[6]  = BGPointStack(piece: homeColor, count: 5)
 
-        // Visita (arriba): 2 en 1, 5 en 12, 3 en 17, 5 en 19
         p[1]  = BGPointStack(piece: awayColor, count: 2)
         p[12] = BGPointStack(piece: awayColor, count: 5)
         p[17] = BGPointStack(piece: awayColor, count: 3)
