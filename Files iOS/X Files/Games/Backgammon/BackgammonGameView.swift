@@ -163,11 +163,19 @@ struct BackgammonGameView: View {
                     .foregroundColor(.secondary)
                     .font(.caption)
             } else {
-                HStack(spacing: 8) {
-                    ForEach(Array(diceMoves.enumerated()), id: \.offset) { _, v in
-                        DiceMoveChip(value: v)
+                // ✅ Centrado (aunque el VStack sea alignment: .leading)
+                HStack {
+                    Spacer(minLength: 0)
+
+                    HStack(spacing: 8) {
+                        ForEach(Array(diceMoves.enumerated()), id: \.offset) { _, v in
+                            DiceMoveChip(value: v)
+                        }
                     }
+
+                    Spacer(minLength: 0)
                 }
+                .frame(maxWidth: .infinity)
 
                 if diceMoves.count == 4, let first = diceMoves.first {
                     Text("Dobles: 4 movimientos de \(first)")
@@ -191,8 +199,12 @@ struct BackgammonGameView: View {
             Text("\(value)")
                 .font(.headline.bold())
                 .frame(width: 44, height: 44)
-                .background(Color.blue.opacity(0.92))
-                .foregroundColor(.white)
+                .background(Color(.systemGray6))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color(.systemGray4), lineWidth: 1)
+                )
+                .foregroundColor(.primary)
                 .cornerRadius(12)
         }
     }

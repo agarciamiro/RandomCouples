@@ -157,7 +157,10 @@ struct BackgammonBoardView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 10)
 
+            // ✅ Layout nuevo: izquierda info, centro dados, derecha jugador
             HStack(alignment: .center, spacing: 14) {
+
+                // IZQUIERDA
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Turno \(turnNumber)")
                         .font(.title3.bold())
@@ -167,8 +170,21 @@ struct BackgammonBoardView: View {
                         .foregroundColor(.secondary)
                 }
 
-                Spacer()
+                Spacer(minLength: 0)
 
+                // CENTRO (DADOS)
+                HStack(spacing: 10) {
+                    diceBox(diceText(index: 0))
+                    Text("+")
+                        .font(.title3.bold())
+                        .foregroundColor(.secondary)
+                    diceBox(diceText(index: 1))
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
+
+                Spacer(minLength: 0)
+
+                // DERECHA (JUGADOR)
                 VStack(spacing: 2) {
                     Text(current == .white ? "BLANCAS" : "NEGRAS")
                         .font(.headline)
@@ -180,14 +196,6 @@ struct BackgammonBoardView: View {
                     Text(nameForCurrent())
                         .font(.footnote.bold())
                         .foregroundColor(.secondary)
-                }
-
-                HStack(spacing: 10) {
-                    diceBox(diceText(index: 0))
-                    Text("+")
-                        .font(.title3.bold())
-                        .foregroundColor(.secondary)
-                    diceBox(diceText(index: 1))
                 }
             }
             .padding(.horizontal, 16)
@@ -229,12 +237,18 @@ struct BackgammonBoardView: View {
         return anyLeft ? "\(v)" : "—"
     }
 
+    // ✅ Dados ligeramente grises para mejor contraste
     private func diceBox(_ text: String) -> some View {
         Text(text)
             .font(.title3.bold())
             .frame(width: 46, height: 46)
-            .background(Color(.systemGray5))
+            .background(Color(.systemGray6))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(Color(.systemGray4), lineWidth: 1)
+            )
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .foregroundColor(.primary)
     }
 
     // MARK: - Board grid (2 filas x 12)
