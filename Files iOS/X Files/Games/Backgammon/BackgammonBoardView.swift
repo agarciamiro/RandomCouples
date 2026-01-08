@@ -263,6 +263,7 @@ struct BackgammonBoardView: View {
             .background(.ultraThinMaterial)
             .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.orange.opacity(0.55), lineWidth: 2))
             .cornerRadius(14)
+            .allowsHitTesting(false)
         } else {
             return VStack(spacing: 10) {
                 Text("BAR obligatorio")
@@ -277,6 +278,7 @@ struct BackgammonBoardView: View {
             .background(.ultraThinMaterial)
             .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.blue.opacity(0.55), lineWidth: 2))
             .cornerRadius(14)
+            .allowsHitTesting(false)
         }
     }
 
@@ -350,19 +352,41 @@ struct BackgammonBoardView: View {
         }
 
         private func pipGrid(value: Int, pipColor: Color) -> some View {
-            // 3x3: TL, TC, TR / ML, MC, MR / BL, BC, BR
-            let tl = (value == 2 || value == 3 || value == 4 || value == 5 || value == 6)
-            let tr = tl
-            let bl = tl
-            let br = tl
+            // 3x3: tl tc tr / ml mc mr / bl bc br
+            let tl: Bool, tc: Bool, tr: Bool
+            let ml: Bool, mc: Bool, mr: Bool
+            let bl: Bool, bc: Bool, br: Bool
 
-            let mc = (value == 1 || value == 3 || value == 5)
-            let ml = (value == 6)
-            let mr = (value == 6)
-
-            // (TC/BC no se usan en este tamaño)
-            let tc = false
-            let bc = false
+            switch value {
+            case 1:
+                tl=false; tc=false; tr=false
+                ml=false; mc=true;  mr=false
+                bl=false; bc=false; br=false
+            case 2:
+                tl=true;  tc=false; tr=false
+                ml=false; mc=false; mr=false
+                bl=false; bc=false; br=true
+            case 3:
+                tl=true;  tc=false; tr=false
+                ml=false; mc=true;  mr=false
+                bl=false; bc=false; br=true
+            case 4:
+                tl=true;  tc=false; tr=true
+                ml=false; mc=false; mr=false
+                bl=true;  bc=false; br=true
+            case 5:
+                tl=true;  tc=false; tr=true
+                ml=false; mc=true;  mr=false
+                bl=true;  bc=false; br=true
+            case 6:
+                tl=true;  tc=false; tr=true
+                ml=true;  mc=false; mr=true
+                bl=true;  bc=false; br=true
+            default:
+                tl=false; tc=false; tr=false
+                ml=false; mc=false; mr=false
+                bl=false; bc=false; br=false
+            }
 
             return VStack(spacing: 6) {
                 HStack(spacing: 6) {
