@@ -99,7 +99,7 @@ struct BackgammonBoardView: View {
 
                         // ✅ Overlay claro (NO bloquea el BAR)
                         if barHasPiecesForCurrent {
-                            barOverlayHint
+                            EmptyView()
                                 .padding(.horizontal, 24)
                                 .allowsHitTesting(false)
                         }
@@ -144,6 +144,12 @@ struct BackgammonBoardView: View {
         }
         .onAppear {
             clearSelection()
+
+            // ✅ Auto-seleccionar BAR si hay fichas en BAR y hay dados activos
+            if barHasPiecesForCurrent && !remainingDiceValues.isEmpty {
+                selectedFrom = Self.barSourceIndex
+                computeHighlights(from: Self.barSourceIndex)
+            }
             // Si hay BAR bloqueado, no “auto-salta”: solo mostramos el estado y habilitamos continuar
             if barHasPiecesForCurrent && barHasNoLegalEntry {
                 clearSelection()
@@ -603,8 +609,8 @@ struct BackgammonBoardView: View {
         .contentShape(Rectangle())
         .onTapGesture { handleTap(on: index) }
         // ✅ BLOQUEO DE TAPS EN EL TABLERO cuando hay BAR
-        .allowsHitTesting(!barHasPiecesForCurrent)
-        .opacity(barHasPiecesForCurrent ? 0.55 : 1.0)
+        .allowsHitTesting(!barHasPiecesForCurrent || highlightedTo.contains(index))
+        .opacity(barHasPiecesForCurrent && !highlightedTo.contains(index) ? 0.55 : 1.0)
     }
 
     private func borderColor(isSelected: Bool, isHighlighted: Bool) -> Color {
