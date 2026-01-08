@@ -31,6 +31,8 @@ struct BackgammonBoardView: View {
     @State private var offCasa: Int = 0
     @State private var offVisita: Int = 0
 
+    @State private var offCandidate: (from: Int, die: Int)? = nil  // B2: destino OFF disponible
+
     // ✅ MVP B1: selección + destinos posibles
     @State private var selectedFrom: Int? = nil
     @State private var highlightedTo: Set<Int> = []
@@ -328,6 +330,12 @@ struct BackgammonBoardView: View {
         return true
     }
 
+
+    // MARK: - B2: OFF highlight (placeholder para compilar)
+    // Nota: en B2 real lo haremos dinámico (según si hay retiro posible).
+    private var offHighlightIsVisita: Bool { false }
+    private var offHighlightIsCasa: Bool { false }
+
 // MARK: - Dados (UI con pips, Opción B)
 
     private func dieValueForUI(index: Int) -> Int? {
@@ -468,7 +476,7 @@ struct BackgammonBoardView: View {
 
                 // ✅ BAR SUPERIOR = VISITA (y muestra su color real con B/N)
                 VStack(spacing: 6) {
-                    offBox(title: "OFF", subtitle: "VISITA", value: offVisita)
+                    offBox(title: "OFF", subtitle: "VISITA", value: offVisita, highlight: offHighlightIsVisita)
                     barCell(slot: .topVisita, width: barW, height: cellH)
                 }
 
@@ -485,7 +493,7 @@ struct BackgammonBoardView: View {
                 // ✅ BAR INFERIOR = CASA (y muestra su color real con B/N)
                 VStack(spacing: 6) {
                     barCell(slot: .bottomCasa, width: barW, height: cellH)
-                    offBox(title: "OFF", subtitle: "CASA", value: offCasa)
+                    offBox(title: "OFF", subtitle: "CASA", value: offCasa, highlight: offHighlightIsCasa)
                 }
 
                 ForEach(botRight, id: \.self) { idx in
@@ -525,7 +533,7 @@ struct BackgammonBoardView: View {
 
     
     // MARK: - OFF boxes (UI only)
-    private func offBox(title: String, subtitle: String, value: Int) -> some View {
+    private func offBox(title: String, subtitle: String, value: Int, highlight: Bool) -> some View {
         VStack(spacing: 2) {
             Text(title)
                 .font(.system(size: 9, weight: .bold))
@@ -544,7 +552,7 @@ struct BackgammonBoardView: View {
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(Color(.systemGray4), lineWidth: 1)
+                .stroke(highlight ? Color.green : Color(.systemGray4), lineWidth: highlight ? 3 : 1)
         )
     }
 
@@ -713,6 +721,7 @@ private func barCell(slot: BarSlot, width: CGFloat, height: CGFloat) -> some Vie
     private func computeHighlights(from index: Int) {
         highlightedTo.removeAll()
         lastComputedMoves.removeAll()
+        offCandidate = nil
 
         let diceValues = remainingDiceValues
         guard !diceValues.isEmpty else { return }
