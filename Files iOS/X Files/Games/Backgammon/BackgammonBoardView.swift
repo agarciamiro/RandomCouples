@@ -304,7 +304,31 @@ struct BackgammonBoardView: View {
         return (current == casaPiece) ? casaName : visitaName
     }
 
-    // MARK: - Dados (UI con pips, Opción B)
+    
+    // MARK: - B1: Bearing off (detección "todas en casa") — SOLO LÓGICA (sin UI)
+
+    private var homeRangeForCurrent: ClosedRange<Int> {
+        // CASA: 1..6, VISITA: 19..24
+        return (current == casaPiece) ? 1...6 : 19...24
+    }
+
+    private var canBearOffCurrent: Bool {
+        // No se puede retirar si hay fichas en BAR
+        if barHasPiecesForCurrent { return false }
+
+        // Contar fichas del jugador actual fuera de su home board
+        for i in 1...24 {
+            guard let stack = points[i] else { continue }
+            if stack.count > 0, stack.piece == current {
+                if !homeRangeForCurrent.contains(i) {
+                    return false
+                }
+            }
+        }
+        return true
+    }
+
+// MARK: - Dados (UI con pips, Opción B)
 
     private func dieValueForUI(index: Int) -> Int? {
         // Si no hay dados disponibles, mostrar vacío
