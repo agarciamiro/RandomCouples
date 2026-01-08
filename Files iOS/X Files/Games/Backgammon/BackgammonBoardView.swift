@@ -27,6 +27,10 @@ struct BackgammonBoardView: View {
     @State private var barWhite: Int = 0
     @State private var barBlack: Int = 0
 
+    // ✅ OFF (fichas retiradas) — solo UI por ahora
+    @State private var offCasa: Int = 0
+    @State private var offVisita: Int = 0
+
     // ✅ MVP B1: selección + destinos posibles
     @State private var selectedFrom: Int? = nil
     @State private var highlightedTo: Set<Int> = []
@@ -439,7 +443,10 @@ struct BackgammonBoardView: View {
                 }
 
                 // ✅ BAR SUPERIOR = VISITA (y muestra su color real con B/N)
-                barCell(slot: .topVisita, width: barW, height: cellH)
+                VStack(spacing: 6) {
+                    offBox(title: "OFF", subtitle: "VISITA", value: offVisita)
+                    barCell(slot: .topVisita, width: barW, height: cellH)
+                }
 
                 ForEach(topRight, id: \.self) { idx in
                     pointCell(index: idx, cellW: cellW, cellH: cellH)
@@ -452,7 +459,10 @@ struct BackgammonBoardView: View {
                 }
 
                 // ✅ BAR INFERIOR = CASA (y muestra su color real con B/N)
-                barCell(slot: .bottomCasa, width: barW, height: cellH)
+                VStack(spacing: 6) {
+                    barCell(slot: .bottomCasa, width: barW, height: cellH)
+                    offBox(title: "OFF", subtitle: "CASA", value: offCasa)
+                }
 
                 ForEach(botRight, id: \.self) { idx in
                     pointCell(index: idx, cellW: cellW, cellH: cellH)
@@ -489,7 +499,32 @@ struct BackgammonBoardView: View {
         .frame(width: 22, height: 22)
     }
 
-    private func barCell(slot: BarSlot, width: CGFloat, height: CGFloat) -> some View {
+    
+    // MARK: - OFF boxes (UI only)
+    private func offBox(title: String, subtitle: String, value: Int) -> some View {
+        VStack(spacing: 2) {
+            Text(title)
+                .font(.system(size: 9, weight: .bold))
+                .foregroundColor(.secondary)
+
+            Text("\(value)")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(.primary)
+
+            Text(subtitle)
+                .font(.system(size: 8, weight: .bold))
+                .foregroundColor(.secondary)
+        }
+        .frame(width: 40, height: 40)
+        .background(Color(.systemGray5))
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color(.systemGray4), lineWidth: 1)
+        )
+    }
+
+private func barCell(slot: BarSlot, width: CGFloat, height: CGFloat) -> some View {
         let ownerPiece: BGPiece = (slot == .bottomCasa) ? casaPiece : visitaPiece
         let label: String = (slot == .bottomCasa) ? "CASA" : "VISITA"
         let count = barCount(for: ownerPiece)
