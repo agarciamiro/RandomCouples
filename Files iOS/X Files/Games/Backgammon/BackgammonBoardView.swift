@@ -29,6 +29,61 @@ struct BackgammonBoardView: View {
 
     // ✅ OFF (fichas retiradas) — solo UI por ahora
     @State private var offCasa: Int = 0
+
+    // MARK: - Winner banner
+
+    private var winnerSideLabel: String? {
+        if offCasa >= 15 { return "CASA" }
+        if offVisita >= 15 { return "VISITA" }
+        return nil
+    }
+
+    private var winnerTitleText: String {
+        "¡GANADOR \(winnerSideLabel ?? "")!"
+    }
+
+    @ViewBuilder
+    private var winnerOverlay: some View {
+        if winnerSideLabel != nil {
+            ZStack {
+                Color.black.opacity(0.22)
+                    .ignoresSafeArea()
+                    .contentShape(Rectangle())
+                    .onTapGesture { } // captura taps (no deja tocar el tablero)
+
+                VStack(spacing: 10) {
+                    Text(winnerTitleText)
+                        .font(.title2.bold())
+                        .foregroundColor(.white)
+
+                    Text(winnerSideLabel == "CASA" ? "Casa (P1)" : "Visita (P2)")
+                        .font(.footnote.bold())
+                        .foregroundColor(.white.opacity(0.9))
+
+                    Button {
+                        dismiss()
+                    } label: {
+                        Text("Cerrar")
+                            .font(.headline.bold())
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.white)
+                    .foregroundColor(.black)
+                }
+                .padding(16)
+                .frame(maxWidth: 320)
+                .background(Color.black.opacity(0.55))
+                .cornerRadius(16)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.white.opacity(0.25), lineWidth: 1)
+                )
+            }
+        }
+    }
+
     @State private var offVisita: Int = 0
 
     // ✅ B2-1: candidato OFF (solo lógica, sin UI)
@@ -152,7 +207,8 @@ GeometryReader { geo in
             .background(.ultraThinMaterial)
             .disabled(!canEndTurn)
         }
-        .navigationTitle("Tablero")
+        .overlay { winnerOverlay }
+.navigationTitle("Tablero")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
         .toolbar {
