@@ -31,6 +31,10 @@ struct BackgammonBoardView: View {
     @State private var offCasa: Int = 0
     @State private var offVisita: Int = 0
 
+    // ✅ B2-1: candidato OFF (solo lógica, sin UI)
+    @State private var offCandidateFrom: Int? = nil
+    @State private var offCandidateDie: Int? = nil
+
     @State private var offCandidate: (from: Int, die: Int)? = nil  // B2: destino OFF disponible
 
     // ✅ MVP B1: selección + destinos posibles
@@ -335,6 +339,73 @@ struct BackgammonBoardView: View {
     // Nota: en B2 real lo haremos dinámico (según si hay retiro posible).
     private var offHighlightIsVisita: Bool { false }
     private var offHighlightIsCasa: Bool { false }
+
+
+    // MARK: - B2-1: cálculo interno de OFF posible (sin UI, sin retirar)
+
+    private func hasCheckerFurtherInHome(from index: Int) -> Bool {
+        // Solo se usa cuando canBearOffCurrent == true (todos en casa)
+        if current == casaPiece {
+            // CASA home 1..6: "más lejos" = puntos mayores
+            if index >= 6 { return false }
+            for i in (index + 1)...6 {
+                if let st = points[i], st.count > 0, st.piece == current { return true }
+            }
+            return false
+        } else {
+            // VISITA home 19..24: "más lejos" = puntos menores
+            if index <= 19 { return false }
+            for i in 19...(index - 1) {
+                if let st = points[i], st.count > 0, st.piece == current { return true }
+            }
+            return false
+        }
+    }
+
+    private func computeOffCandidate(from index: Int) {
+        offCandidateFrom = nil
+        offCandidateDie = nil
+
+        guard canBearOffCurrent else { return }
+        guard homeRangeForCurrent.contains(index) else { return }
+
+        let diceValues = remainingDiceValues
+        guard !diceValues.isEmpty else { return }
+
+        let dir = moveDirectionForCurrent()
+
+        for v in diceValues {
+            let to = index + (dir * v)
+
+            // Exacto
+            if current == casaPiece && to == 0 {
+                offCandidateFrom = index
+                offCandidateDie = v
+                return
+            }
+            if current == visitaPiece && to == 25 {
+                offCandidateFrom = index
+                offCandidateDie = v
+                return
+            }
+
+            // Overshoot permitido (regla estándar)
+            if current == casaPiece && to < 1 {
+                if !hasCheckerFurtherInHome(from: index) {
+                    offCandidateFrom = index
+                    offCandidateDie = v
+                    return
+                }
+            }
+            if current == visitaPiece && to > 24 {
+                if !hasCheckerFurtherInHome(from: index) {
+                    offCandidateFrom = index
+                    offCandidateDie = v
+                    return
+                }
+            }
+        }
+    }
 
 // MARK: - Dados (UI con pips, Opción B)
 
