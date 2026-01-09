@@ -407,6 +407,55 @@ struct BackgammonBoardView: View {
         }
     }
 
+    // MARK: - B3-1: ejecutar retiro OFF (solo CASA)
+    private func executeBearOffCasa() {
+        guard current == casaPiece else { return }
+        guard canBearOffCurrent else { return }
+        guard let from = offCandidateFrom, let die = offCandidateDie else { return }
+
+        // Quitar 1 ficha del punto 'from'
+        guard var src = points[from], src.count > 0, src.piece == current else { return }
+        src.count -= 1
+        if src.count == 0 { src.piece = .none }
+        points[from] = src
+
+        // Consumir el dado usado
+        consumeOneDie(value: die)
+
+        // Incrementar OFF CASA
+        offCasa += 1
+
+        // Limpieza / recalcular
+        clearSelection()
+
+        // Si aún hay dados disponibles, queda listo para seguir jugando
+        // (si quedan fichas en BAR, post-move logic ya se encarga cuando selecciones)
+    }
+
+    // MARK: - B3-2: ejecutar retiro OFF (VISITA)
+    private func executeBearOffVisita() {
+        guard current == visitaPiece else { return }
+        guard canBearOffCurrent else { return }
+        guard let from = offCandidateFrom, let die = offCandidateDie else { return }
+
+        // Quitar 1 ficha del punto 'from'
+        guard var src = points[from], src.count > 0, src.piece == current else { return }
+        src.count -= 1
+        if src.count == 0 { src.piece = .none }
+        points[from] = src
+
+        // Consumir el dado usado
+        consumeOneDie(value: die)
+
+        // Incrementar OFF VISITA
+        offVisita += 1
+
+        // Limpieza / recalcular
+        clearSelection()
+    }
+
+
+
 // MARK: - Dados (UI con pips, Opción B)
 
     private func dieValueForUI(index: Int) -> Int? {
@@ -548,6 +597,10 @@ struct BackgammonBoardView: View {
                 // ✅ BAR SUPERIOR = VISITA (y muestra su color real con B/N)
                 VStack(spacing: 6) {
                     offBox(title: "OFF", subtitle: "VISITA", value: offVisita, highlight: offHighlightIsVisita)
+                .allowsHitTesting(offHighlightIsVisita)
+                .onTapGesture {
+                    executeBearOffVisita()
+                }
                     barCell(slot: .topVisita, width: barW, height: cellH)
                 }
 
@@ -565,6 +618,10 @@ struct BackgammonBoardView: View {
                 VStack(spacing: 6) {
                     barCell(slot: .bottomCasa, width: barW, height: cellH)
                     offBox(title: "OFF", subtitle: "CASA", value: offCasa, highlight: offHighlightIsCasa)
+                .allowsHitTesting(offHighlightIsCasa)
+                .onTapGesture {
+                    executeBearOffCasa()
+                }
                 }
 
                 ForEach(botRight, id: \.self) { idx in
@@ -993,7 +1050,10 @@ private func barCell(slot: BarSlot, width: CGFloat, height: CGFloat) -> some Vie
         if barHasPiecesForCurrent && barHasNoLegalEntry {
             clearSelection()
         }
-    }
+    
+        offCandidateFrom = nil
+        offCandidateDie = nil
+}
 
     // MARK: - Dirección (Casa)
 
