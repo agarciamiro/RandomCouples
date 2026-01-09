@@ -98,7 +98,22 @@ struct BackgammonBoardView: View {
 
             Divider()
 
-            GeometryReader { geo in
+            // ✅ UX A1: espejo de dados en el centro (solo visual)
+            HStack(spacing: 10) {
+                dieBox(value: dieValueForUI(index: 0))
+
+                Text("+")
+                    .font(.title3.bold())
+                    .foregroundColor(.secondary)
+
+                dieBox(value: dieValueForUI(index: 1))
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.top, 6)
+            .padding(.bottom, 2)
+            .offset(x: 6, y: -17)
+
+GeometryReader { geo in
                 ScrollView(.horizontal, showsIndicators: false) {
                     ZStack {
                         boardGrid(availableWidth: geo.size.width)
@@ -200,13 +215,8 @@ struct BackgammonBoardView: View {
 
                 // CENTRO (DADOS + DIRECCIÓN)
                 VStack(spacing: 6) {
-                    HStack(spacing: 10) {
-                        dieBox(value: dieValueForUI(index: 0))
-                        Text("+")
-                            .font(.title3.bold())
-                            .foregroundColor(.secondary)
-                        dieBox(value: dieValueForUI(index: 1))
-                    }
+                    // ✅ UX A1: dados se muestran al centro (se ocultan aquí)
+Spacer(minLength: 0)
 
                     Text(directionIndicatorText)
                         .font(.caption2.bold())
@@ -1139,3 +1149,4 @@ private struct BGPointStack {
     var piece: BGPiece
     var count: Int
 }
+
