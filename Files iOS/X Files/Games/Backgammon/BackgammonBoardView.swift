@@ -337,8 +337,8 @@ struct BackgammonBoardView: View {
 
     // MARK: - B2: OFF highlight (placeholder para compilar)
     // Nota: en B2 real lo haremos dinámico (según si hay retiro posible).
-    private var offHighlightIsVisita: Bool { false }
-    private var offHighlightIsCasa: Bool { false }
+    private var offHighlightIsVisita: Bool { offCandidateFrom != nil && current == visitaPiece }
+    private var offHighlightIsCasa: Bool { offCandidateFrom != nil && current == casaPiece }
 
 
     // MARK: - B2-1: cálculo interno de OFF posible (sin UI, sin retirar)
@@ -820,7 +820,11 @@ private func barCell(slot: BarSlot, width: CGFloat, height: CGFloat) -> some Vie
                 lastComputedMoves[to] = v
             }
         }
-    }
+    
+
+        // B2-2: si aplica, calcular candidato OFF (solo highlight)
+        computeOffCandidate(from: index)
+}
 
     private func isDestinationAllowed(to: Int) -> Bool {
         guard let dest = points[to] else { return true }
