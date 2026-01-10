@@ -30,6 +30,10 @@ struct BackgammonBoardView: View {
     // ✅ OFF (fichas retiradas) — solo UI por ahora
     @State private var offCasa: Int = 0
 
+
+    // ✅ SERIE (acumulado) — UI-only por ahora
+    @State private var serieCasa: Int = 0
+    @State private var serieVisita: Int = 0
     // MARK: - Winner banner
 
     private var winnerSideLabel: String? {
@@ -273,6 +277,7 @@ GeometryReader { geo in
                 VStack(spacing: 6) {
                     // ✅ UX A1: dados se muestran al centro (se ocultan aquí)
 Spacer(minLength: 0)
+                serieBadge
 
                     Text(directionIndicatorText)
                         .font(.caption2.bold())
@@ -521,6 +526,39 @@ Spacer(minLength: 0)
     }
 
 
+
+
+    // MARK: - STONE SERIE: SERIE + Multiplicador (UI)
+
+    private var currentMatchMultiplier: Int {
+        let t = max(0, startResult.tieCount)
+        return max(1, 1 << t) // 2^t
+    }
+
+    private var serieBadge: some View {
+        VStack(spacing: 6) {
+            HStack(spacing: 10) {
+                Text("SERIE CASA: \(serieCasa)")
+                    .font(.caption.bold())
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color(.systemGray5))
+                    .clipShape(Capsule())
+
+                Text("SERIE VISITA: \(serieVisita)")
+                    .font(.caption.bold())
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color(.systemGray5))
+                    .clipShape(Capsule())
+            }
+
+            Text("Multiplicador: x\(currentMatchMultiplier)")
+                .font(.caption2.bold())
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
+    }
 
 // MARK: - Dados (UI con pips, Opción B)
 
