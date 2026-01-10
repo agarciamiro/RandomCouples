@@ -536,21 +536,43 @@ Spacer(minLength: 0)
     }
 
     private var serieBadge: some View {
-        VStack(spacing: 6) {
-            HStack(spacing: 10) {
-                Text("SERIE CASA: \(serieCasa)")
-                    .font(.caption.bold())
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Color(.systemGray5))
-                    .clipShape(Capsule())
+        let casaPlayer = (casaPiece == .black) ? colors.blackPlayer : colors.whitePlayer
+        let visitaPlayer = (visitaPiece == .black) ? colors.blackPlayer : colors.whitePlayer
 
-                Text("SERIE VISITA: \(serieVisita)")
-                    .font(.caption.bold())
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Color(.systemGray5))
-                    .clipShape(Capsule())
+        func nameChip(_ name: String, isBlack: Bool) -> some View {
+            Text(name)
+                .font(.caption2.bold())
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(isBlack ? Color(.label) : Color(.systemGray5))
+                .foregroundColor(isBlack ? .white : .black)
+                .clipShape(Capsule())
+        }
+
+        func scoreCircle(_ value: Int) -> some View {
+            ZStack {
+                Circle()
+                    .fill(Color(.systemGray5))
+                    .overlay(Circle().stroke(Color(.systemGray4), lineWidth: 1))
+
+                Text("\(value)")
+                    .font(.headline.bold())
+                    .foregroundColor(.primary)
+            }
+            .frame(width: 54, height: 54)
+        }
+
+        return VStack(spacing: 6) {
+            HStack(spacing: 18) {
+                VStack(spacing: 6) {
+                    scoreCircle(serieCasa)
+                    nameChip(casaPlayer, isBlack: (casaPiece == .black))
+                }
+
+                VStack(spacing: 6) {
+                    scoreCircle(serieVisita)
+                    nameChip(visitaPlayer, isBlack: (visitaPiece == .black))
+                }
             }
 
             Text("Multiplicador: x\(currentMatchMultiplier)")
@@ -558,7 +580,6 @@ Spacer(minLength: 0)
                 .foregroundColor(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .center)
-    
         .offset(y: -24)
     }
 
