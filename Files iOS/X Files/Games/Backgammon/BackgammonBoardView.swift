@@ -558,6 +558,8 @@ Spacer(minLength: 0)
                 .foregroundColor(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .center)
+    
+        .offset(y: -24)
     }
 
 // MARK: - Dados (UI con pips, Opción B)
