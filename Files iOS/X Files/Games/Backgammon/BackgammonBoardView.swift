@@ -48,7 +48,7 @@ struct BackgammonBoardView: View {
 
     @ViewBuilder
     private var winnerOverlay: some View {
-        if winnerSideLabel != nil {
+        if winnerSideLabel != nil && showWinnerOverlay {
             ZStack {
                 Color.black.opacity(0.22)
                     .ignoresSafeArea()
@@ -65,9 +65,10 @@ struct BackgammonBoardView: View {
                         .foregroundColor(.white.opacity(0.9))
 
                     Button {
-                        dismiss()
+                        showWinnerOverlay = false
+                showRematchPrompt = true
                     } label: {
-                        Text("Cerrar")
+                        Text("Continuar")
                             .font(.headline.bold())
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
@@ -100,6 +101,10 @@ struct BackgammonBoardView: View {
     @State private var selectedFrom: Int? = nil
     @State private var highlightedTo: Set<Int> = []
     @State private var lastComputedMoves: [Int: Int] = [:] // destino -> dado usado (valor)
+
+    @State private var showWinnerOverlay: Bool = true
+@State private var showRematchPrompt: Bool = false
+    @State private var matchFinalizedForSeries: Bool = false
 
     // MARK: - Inits (compatibles con tus llamadas)
 
@@ -213,6 +218,23 @@ GeometryReader { geo in
         }
         .overlay { winnerOverlay }
 .navigationTitle("Tablero")
+
+        .alert("¿Jugar otra partida?", isPresented: $showRematchPrompt) {
+            Button("Sí") {
+                if !matchFinalizedForSeries {
+                    if offCasa >= 15 { serieCasa += currentMatchMultiplier }
+                    else if offVisita >= 15 { serieVisita += currentMatchMultiplier }
+                    matchFinalizedForSeries = true
+                }
+                resetMatchKeepSeries()
+            }
+            Button("No", role: .cancel) {
+                dismiss()
+            }
+        } message: {
+            Text("Se mantienen colores y se acumula el marcador de la serie.")
+        }
+
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
         .toolbar {
@@ -1232,7 +1254,39 @@ private func barCell(slot: BarSlot, width: CGFloat, height: CGFloat) -> some Vie
 
     // MARK: - Setup (RELATIVO A CASA)
 
-    private static func standardSetup(homeColor: BGPiece) -> [Int: BGPointStack] {
+    
+    // MARK: - B1: Rematch (mantiene SERIE, reinicia partida)
+    private func resetMatchKeepSeries() {
+        showWinnerOverlay = true
+        showRematchPrompt = false
+
+        let homeColor: BGPiece = (colors.blackSide == .player1) ? .black : .white
+        points = Self.standardSetup(homeColor: homeColor)
+
+        barWhite = 0
+        barBlack = 0
+        offCasa = 0
+        offVisita = 0
+
+        turnNumber = 1
+        current = (current == .white) ? .black : .white
+
+        // nuevos dados
+        let d1 = Int.random(in: 1...6)
+        let d2 = Int.random(in: 1...6)
+        if d1 == d2 {
+            dice = [d1, d1, d1, d1]
+            diceUsed = [false, false, false, false]
+        } else {
+            dice = [d1, d2]
+            diceUsed = [false, false]
+        }
+
+        clearSelection()
+        matchFinalizedForSeries = false
+    }
+
+private static func standardSetup(homeColor: BGPiece) -> [Int: BGPointStack] {
         var p: [Int: BGPointStack] = [:]
         for i in 1...24 { p[i] = BGPointStack(piece: .none, count: 0) }
 
