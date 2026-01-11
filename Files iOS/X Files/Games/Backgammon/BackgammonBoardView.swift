@@ -1208,21 +1208,26 @@ private func barCell(slot: BarSlot, width: CGFloat, height: CGFloat) -> some Vie
     private func hasCheckerFurtherInHomeCasa(from: Int) -> Bool {
         // CASA home: 1..6. "Más allá" = puntos mayores.
         guard (1...6).contains(from) else { return false }
-        for i in (from+1)...6 {
+        if from >= 6 { return false } // ✅ evita rango inválido 7...6
+
+        for i in (from + 1)...6 {
             if let st = points[i], st.count > 0, st.piece == current { return true }
         }
         return false
     }
 
+
     private func hasCheckerFurtherInHomeVisita(from: Int) -> Bool {
-        // VISITA home: 19..24. "Más allá" = puntos menores.
+        // VISITA home: 19..24. "Más allá" = puntos menores (hacia 19).
         guard (19...24).contains(from) else { return false }
-        if from <= 19 { return false }
-        for i in 19..<(from) {
+        if from <= 19 { return false } // ✅ evita rango inválido 19...18
+
+        for i in 19...(from - 1) {
             if let st = points[i], st.count > 0, st.piece == current { return true }
         }
         return false
     }
+
 
     // MARK: - Turn management
 
@@ -1246,6 +1251,9 @@ private func barCell(slot: BarSlot, width: CGFloat, height: CGFloat) -> some Vie
                 return "BAR bloqueado. No hay jugadas legales. Turno perdido."
             }
             return "Tienes ficha(s) en BAR. Debes salir del BAR primero."
+        }
+        if !dice.isEmpty && !hasAnyLegalMove() {
+            return "No hay jugadas legales. Turno perdido: toca Continuar."
         }
         if canEndTurn {
             return "Dados consumidos. Puedes pasar al siguiente turno."
