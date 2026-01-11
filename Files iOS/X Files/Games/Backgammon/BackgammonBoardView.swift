@@ -104,6 +104,7 @@ struct BackgammonBoardView: View {
 
     @State private var showWinnerOverlay: Bool = true
 @State private var showRematchPrompt: Bool = false
+    @State private var showRematchDiceRoulette: Bool = false
     @State private var matchFinalizedForSeries: Bool = false
 
     // MARK: - Inits (compatibles con tus llamadas)
@@ -219,6 +220,19 @@ GeometryReader { geo in
         .overlay { winnerOverlay }
 .navigationTitle("Tablero")
 
+        .sheet(isPresented: $showRematchDiceRoulette) {
+            NavigationStack {
+                BackgammonDiceRouletteView(colors: colors) { _ in
+                    // STEP1: solo cerramos la ruleta (sin reset aún)
+                    showRematchDiceRoulette = false
+                    showRematchPrompt = false
+                }
+                .navigationTitle("Ruleta")
+                .navigationBarTitleDisplayMode(.inline)
+            }
+        }
+
+
         .alert("¿Jugar otra partida?", isPresented: $showRematchPrompt) {
             Button("Sí") {
                 if !matchFinalizedForSeries {
@@ -226,7 +240,8 @@ GeometryReader { geo in
                     else if offVisita >= 15 { serieVisita += currentMatchMultiplier }
                     matchFinalizedForSeries = true
                 }
-                resetMatchKeepSeries()
+                showRematchDiceRoulette = true
+                // resetMatchKeepSeries()  // (STEP1: aún no reseteamos)
             }
             Button("No", role: .cancel) {
                 dismiss()
@@ -1147,11 +1162,74 @@ private func barCell(slot: BarSlot, width: CGFloat, height: CGFloat) -> some Vie
         }
     }
 
+
+    // ✅ Detecta si hay al menos 1 jugada legal con los dados restantes.
+    private func hasAnyLegalMove() -> Bool {
+        let diceValues = remainingDiceValues
+        if diceValues.isEmpty { return false }
+
+        // 1) Si hay BAR: solo entradas desde BAR
+        if barHasPiecesForCurrent {
+            for v in diceValues {
+                let entry = barEntryPoint(forDie: v)
+                if (1...24).contains(entry), isDestinationAllowed(to: entry) {
+                    return true
+                }
+            }
+            return false
+        }
+
+        // 2) Movidas normales en tablero
+        let dir = moveDirectionForCurrent()
+        for from in 1...24 {
+            guard let stack = points[from], stack.count > 0, stack.piece == current else { continue }
+            for v in diceValues {
+                let to = from + (dir * v)
+
+                // Movimiento dentro del tablero
+                if (1...24).contains(to) {
+                    if isDestinationAllowed(to: to) { return true }
+                    continue
+                }
+
+                // 3) Bear off (si existe canBearOffCurrent)
+                if canBearOffCurrent {
+                    if current == casaPiece && to < 1 {
+                        if !hasCheckerFurtherInHomeCasa(from: from) { return true }
+                    } else if current == visitaPiece && to > 24 {
+                        if !hasCheckerFurtherInHomeVisita(from: from) { return true }
+                    }
+                }
+            }
+        }
+        return false
+    }
+
+    private func hasCheckerFurtherInHomeCasa(from: Int) -> Bool {
+        // CASA home: 1..6. "Más allá" = puntos mayores.
+        guard (1...6).contains(from) else { return false }
+        for i in (from+1)...6 {
+            if let st = points[i], st.count > 0, st.piece == current { return true }
+        }
+        return false
+    }
+
+    private func hasCheckerFurtherInHomeVisita(from: Int) -> Bool {
+        // VISITA home: 19..24. "Más allá" = puntos menores.
+        guard (19...24).contains(from) else { return false }
+        if from <= 19 { return false }
+        for i in 19..<(from) {
+            if let st = points[i], st.count > 0, st.piece == current { return true }
+        }
+        return false
+    }
+
     // MARK: - Turn management
 
     private var canEndTurn: Bool {
         // ✅ Si BAR está bloqueado: se permite terminar turno aunque queden dados
         if barHasPiecesForCurrent && barHasNoLegalEntry { return true }
+        if !hasAnyLegalMove() { return true }
         return remainingDiceValues.isEmpty
     }
 
