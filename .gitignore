@@ -15,3 +15,6 @@ Others/
 # Local artifacts
 RandomCouples.xcodeproj-iMac/
 Files iOS/X Files/Games/Backgammon/*.BAK_*
+
+# Local iMac artifacts
+RandomCouples.xcodeproj-iMac-*/
