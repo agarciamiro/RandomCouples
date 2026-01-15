@@ -303,6 +303,17 @@ GeometryReader { geo in
                     Text("Turno \(turnNumber)")
                         .font(.title3.bold())
 
+                    // ✅ Contador de movimientos restantes (dobles=4)
+                    if !dice.isEmpty {
+                        let total = dice.count
+                        let left = remainingDiceValues.count
+                        let used = total - left
+
+                        Text("Movimientos: \(used)/\(total)")
+                            .font(.caption.bold())
+                            .foregroundColor(.secondary)
+                    }
+
                     Text("Juega:")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
