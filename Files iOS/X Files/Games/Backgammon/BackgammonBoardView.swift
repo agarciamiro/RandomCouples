@@ -55,7 +55,7 @@ struct BackgammonBoardView: View {
                     .contentShape(Rectangle())
                     .onTapGesture { } // captura taps (no deja tocar el tablero)
 
-                VStack(spacing: 10) {
+            VStack(spacing: 8) {
                     Text(winnerTitleText)
                         .font(.title2.bold())
                         .foregroundColor(.white)
@@ -70,6 +70,8 @@ struct BackgammonBoardView: View {
                     } label: {
                         Text("Continuar")
                             .font(.headline.bold())
+                .font(.footnote.bold())
+                .controlSize(.small)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
                     }
@@ -200,10 +202,35 @@ GeometryReader { geo in
             Text(boardHintText)
                 .font(.footnote)
                 .foregroundColor(.secondary)
-                .padding(.bottom, 10)
+                .padding(.bottom, 86)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            Button {
+            VStack(spacing: 8) {
+                HStack(spacing: 10) {
+                    Button("Regresar") {
+                        // TODO: implementar undo/regresar jugada
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(true)
+
+                    Button("Cancelar") {
+                        clearSelection()
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.secondary)
+
+                    Button("Confirmar") {
+                        // TODO: implementar confirmar jugadas
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(true)
+                }
+                .font(.footnote.bold())
+                .controlSize(.small)
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 16)
+
+                Button {
                 nextTurn()
             } label: {
                 Text(nextTurnButtonTitle)
@@ -216,6 +243,7 @@ GeometryReader { geo in
             .padding(.bottom, 12)
             .background(.ultraThinMaterial)
             .disabled(!canEndTurn)
+            }
         }
         .overlay { winnerOverlay }
 .navigationTitle("Tablero")
@@ -287,7 +315,7 @@ GeometryReader { geo in
     }
 
     private var header: some View {
-        VStack(spacing: 10) {
+            VStack(spacing: 8) {
             Text("TABLERO (24 posiciones)")
                 .font(.headline)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -385,7 +413,7 @@ Spacer(minLength: 0)
                 Spacer(minLength: 8)
             }
         }
-        .padding(.bottom, 10)
+                .padding(.bottom, 86)
         .background(Color(.systemBackground))
     }
 
