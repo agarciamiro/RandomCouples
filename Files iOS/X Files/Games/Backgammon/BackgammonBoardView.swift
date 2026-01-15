@@ -897,8 +897,15 @@ private func barCell(slot: BarSlot, width: CGFloat, height: CGFloat) -> some Vie
 
         return VStack(spacing: 2) {
             Rectangle()
-                .fill(Color.gray.opacity(0.30))
+                .fill(needsAttention ? Color.blue.opacity(0.10) : Color.gray.opacity(0.30))
                 .frame(width: width, height: height)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(
+                            (isBlocked ? Color.orange : (needsAttention ? Color.blue : Color.clear))
+                                .opacity(needsAttention ? 0.12 : 0.0)
+                        )
+                )
                 .cornerRadius(8)
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
@@ -906,6 +913,16 @@ private func barCell(slot: BarSlot, width: CGFloat, height: CGFloat) -> some Vie
                 )
                 .overlay(
                     ZStack {
+                        if isBlocked {
+                            Text("BLOQUEADO")
+                                .font(.system(size: 7, weight: .bold))
+                                .foregroundColor(.orange)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 3)
+                                .background(Color.white.opacity(0.75))
+                                .clipShape(Capsule())
+                                .offset(y: -2)
+                        }
                         if count > 0 {
                             VStack(spacing: 3) {
                                 ForEach(0..<visiblePips, id: \.self) { _ in
