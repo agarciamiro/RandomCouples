@@ -258,7 +258,6 @@ GeometryReader { geo in
                     Image(systemName: "xmark")
                         .font(.footnote.bold())
                         .padding(8)
-                        .background(Color(.systemGray4))
                         .clipShape(Circle())
                 }
                 .accessibilityLabel("Cerrar")
@@ -344,10 +343,11 @@ Spacer(minLength: 0)
                 // DERECHA (JUGADOR)
                 VStack(spacing: 2) {
                     Text(current == .white ? "BLANCAS" : "NEGRAS")
-                        .font(.headline)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Color(.systemGray4))
+                        .font(.headline.bold())
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 7)
+                        .background(current == .white ? Color(.systemGray6) : Color.black)
+                        .foregroundColor(current == .white ? .black : .white)
                         .clipShape(Capsule())
 
                     Text(nameForCurrent())
