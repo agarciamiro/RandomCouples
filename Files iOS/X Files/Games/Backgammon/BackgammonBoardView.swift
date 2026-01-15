@@ -168,7 +168,7 @@ struct BackgammonBoardView: View {
                 dieBox(value: dieValueForUI(index: 0))
 
                 Text("+")
-                    .font(.title3.bold())
+                    .font(.caption.bold())
                     .foregroundColor(.secondary)
 
                 dieBox(value: dieValueForUI(index: 1))
@@ -300,7 +300,7 @@ GeometryReader { geo in
                 // IZQUIERDA
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Turno \(turnNumber)")
-                        .font(.title3.bold())
+                        .font(.caption.bold())
 
                     // ✅ Contador de movimientos restantes (dobles=4)
                     if !dice.isEmpty {
@@ -317,9 +317,6 @@ GeometryReader { geo in
                             .foregroundColor(.secondary)
                     }
 
-                    Text("Juega:")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
                 }
 
                 Spacer(minLength: 0)
@@ -342,6 +339,10 @@ Spacer(minLength: 0)
 
                 // DERECHA (JUGADOR)
                 VStack(spacing: 2) {
+                    Text("Turno de:")
+                        .font(.caption.bold())
+                        .foregroundColor(.secondary)
+
                     Text(current == .white ? "BLANCAS" : "NEGRAS")
                         .font(.headline.bold())
                         .padding(.horizontal, 14)
@@ -423,9 +424,9 @@ Spacer(minLength: 0)
 
     private var directionIndicatorText: String {
         if current == casaPiece {
-            return "⬅️ CASA: 24 → 1"
+            return "⬅️ CASA: 24 → 1 · ABAJO"
         } else {
-            return "VISITA: 1 → 24 ➡️"
+            return "➡️ VISITA: 1 → 24 · ARRIBA"
         }
     }
 
