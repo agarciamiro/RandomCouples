@@ -298,7 +298,7 @@ GeometryReader { geo in
             HStack(alignment: .center, spacing: 14) {
 
                 // IZQUIERDA
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .center, spacing: 4) {
                     Text("Turno \(turnNumber)")
                         .font(.caption.bold())
 
@@ -345,10 +345,12 @@ Spacer(minLength: 0)
 
                     Text(current == .white ? "BLANCAS" : "NEGRAS")
                         .font(.headline.bold())
-                        .padding(.horizontal, 14)
+                        .padding(.horizontal, 18)
                         .padding(.vertical, 7)
                         .background(current == .white ? Color(.systemGray6) : Color.black)
                         .foregroundColor(current == .white ? .black : .white)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
                         .clipShape(Capsule())
 
                     Text(nameForCurrent())
