@@ -256,7 +256,7 @@ GeometryReader { geo in
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button { dismiss() } label: {
                     Image(systemName: "xmark")
-                        .font(.caption.bold())
+                        .font(.footnote.bold())
                         .padding(8)
                         .background(Color(.systemGray4))
                         .clipShape(Circle())
@@ -310,7 +310,11 @@ GeometryReader { geo in
                         let used = total - left
 
                         Text("Movimientos: \(used)/\(total)")
-                            .font(.caption.bold())
+                            .font(.footnote.bold())
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(Color(.systemGray5))
+                            .clipShape(Capsule())
                             .foregroundColor(.secondary)
                     }
 
