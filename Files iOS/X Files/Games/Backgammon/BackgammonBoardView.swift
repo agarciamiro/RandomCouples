@@ -61,7 +61,7 @@ struct BackgammonBoardView: View {
                         .foregroundColor(.white)
 
                     Text(winnerSideLabel == "CASA" ? "Casa (P1)" : "Visita (P2)")
-                        .font(.footnote.bold())
+                        .font(.footnote)
                         .foregroundColor(.white.opacity(0.9))
 
                     Button {
@@ -72,7 +72,7 @@ struct BackgammonBoardView: View {
                             .font(.headline.bold())
                 .font(.footnote.bold())
                 .controlSize(.small)
-                            .frame(maxWidth: .infinity)
+                            .frame(maxWidth: 340)
                             .padding(.vertical, 12)
                     }
                     .buttonStyle(.borderedProminent)
@@ -163,7 +163,26 @@ struct BackgammonBoardView: View {
 
             header
 
-            Divider()
+            // ✅ Mensajes pro (BAR / bloqueado / sin jugadas) — debajo del header
+            if !boardHintText.isEmpty {
+                HStack {
+                    Spacer(minLength: 0)
+                    Text(boardHintText)
+                    .font(.footnote.bold())
+                    .multilineTextAlignment(.center)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .minimumScaleFactor(0.65)
+                    .padding(.vertical, 2)
+                    .padding(.horizontal, 14)
+                    .frame(maxWidth: .infinity)
+                    .background(Color.white.opacity(0.92))
+                    .cornerRadius(12)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 6)
+            }
+
+
 
             // ✅ UX A1: espejo de dados en el centro (solo visual)
             HStack(spacing: 10) {
@@ -199,10 +218,6 @@ GeometryReader { geo in
                 }
             }
 
-            Text(boardHintText)
-                .font(.footnote)
-                .foregroundColor(.secondary)
-                .padding(.bottom, 86)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 8) {
@@ -218,6 +233,7 @@ GeometryReader { geo in
                     }
                     .buttonStyle(.bordered)
                     .tint(.secondary)
+                    .disabled(!canCancelSelection)
 
                     Button("Confirmar") {
                         // TODO: implementar confirmar jugadas
@@ -316,11 +332,6 @@ GeometryReader { geo in
 
     private var header: some View {
             VStack(spacing: 8) {
-            Text("TABLERO (24 posiciones)")
-                .font(.headline)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16)
-                .padding(.top, 10)
 
             // ✅ Layout: izquierda info, centro dados + dirección, derecha jugador
             HStack(alignment: .center, spacing: 14) {
@@ -388,32 +399,8 @@ Spacer(minLength: 0)
             }
             .padding(.horizontal, 16)
 
-            // ✅ Feedback cuando hay BAR (si no está bloqueado)
-            if barHasPiecesForCurrent && !barHasNoLegalEntry {
-                Text("Debes salir del BAR primero.")
-                    .font(.footnote.bold())
-                    .padding(.vertical, 8)
-                    .frame(maxWidth: .infinity)
-                    .background(Color.blue.opacity(0.12))
-                    .cornerRadius(12)
-                    .padding(.horizontal, 16)
-            }
-
-            // ✅ Banner persistente: TURNO PERDIDO (hasta que el usuario toque continuar)
-            if barHasPiecesForCurrent && barHasNoLegalEntry {
-                Text("Turno perdido — BAR bloqueado (no hay jugadas legales).")
-                    .font(.footnote.bold())
-                    .padding(.vertical, 10)
-                    .frame(maxWidth: .infinity)
-                    .background(Color.orange.opacity(0.20))
-                    .cornerRadius(12)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 6)
-            } else {
-                Spacer(minLength: 8)
-            }
+            Spacer(minLength: 10)
         }
-                .padding(.bottom, 86)
         .background(Color(.systemBackground))
     }
 
@@ -1194,6 +1181,11 @@ private func barCell(slot: BarSlot, width: CGFloat, height: CGFloat) -> some Vie
         highlightedTo.removeAll()
         lastComputedMoves.removeAll()
     }
+
+    private var canCancelSelection: Bool {
+        selectedFrom != nil || !highlightedTo.isEmpty || !lastComputedMoves.isEmpty
+    }
+
 
     // MARK: - Dice helpers (dobles=4)
 
