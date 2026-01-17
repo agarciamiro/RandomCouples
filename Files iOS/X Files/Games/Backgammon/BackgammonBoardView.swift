@@ -199,6 +199,10 @@ GeometryReader { geo in
                 }
             }
 
+            Text(boardHintText)
+                .font(.footnote)
+                .foregroundColor(.secondary)
+                .padding(.bottom, 86)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 8) {
@@ -312,6 +316,11 @@ GeometryReader { geo in
 
     private var header: some View {
             VStack(spacing: 8) {
+            Text("TABLERO (24 posiciones)")
+                .font(.headline)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
 
             // ✅ Layout: izquierda info, centro dados + dirección, derecha jugador
             HStack(alignment: .center, spacing: 14) {
@@ -404,6 +413,7 @@ Spacer(minLength: 0)
                 Spacer(minLength: 8)
             }
         }
+                .padding(.bottom, 86)
         .background(Color(.systemBackground))
     }
 
