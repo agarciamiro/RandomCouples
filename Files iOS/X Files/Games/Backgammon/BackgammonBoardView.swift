@@ -199,10 +199,10 @@ GeometryReader { geo in
                 }
             }
 
-            Text(boardHintText)
-                .font(.footnote)
-                .foregroundColor(.secondary)
-                .padding(.bottom, 86)
+            // Text(boardHintText)
+            //     .font(.footnote)
+            //     .foregroundColor(.secondary)
+            //     .padding(.bottom, 86)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 8) {
