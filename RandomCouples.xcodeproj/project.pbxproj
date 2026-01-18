@@ -24,6 +24,17 @@
 				"Others/AppIcons/android/mipmap-xhdpi/ic_launcher.png",
 				"Others/AppIcons/android/mipmap-xxhdpi/ic_launcher.png",
 				"Others/AppIcons/android/mipmap-xxxhdpi/ic_launcher.png",
+				"X Files/Games/Backgammon/Billard/AsignacionView.swift",
+				"X Files/Games/Backgammon/Billard/Equipo.swift",
+				"X Files/Games/Backgammon/Billard/GameEngine.swift",
+				"X Files/Games/Backgammon/Billard/IngresarNombresView.swift",
+				"X Files/Games/Backgammon/Billard/Jugador.swift",
+				"X Files/Games/Backgammon/Billard/PartidaView.swift",
+				"X Files/Games/Backgammon/Billard/Reglas_Billar.pdf",
+				"X Files/Games/Backgammon/Billard/ResultadoRuleta.swift",
+				"X Files/Games/Backgammon/Billard/RuletaView.swift",
+				"X Files/Games/Backgammon/Billard/ScoresView.swift",
+				"X Files/Games/Backgammon/Billard/TipoEquipo.swift",
 			);
 			target = B4B28F142EE05D910062C635 /* RandomCouples */;
 		};
