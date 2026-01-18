@@ -34,6 +34,8 @@ struct BackgammonBoardView: View {
     // ✅ SERIE (acumulado) — UI-only por ahora
     @State private var serieCasa: Int = 0
     @State private var serieVisita: Int = 0
+    @State private var showPersistentBanner: Bool = false
+    
     // MARK: - Winner banner
 
     private var winnerSideLabel: String? {
@@ -105,7 +107,7 @@ struct BackgammonBoardView: View {
     @State private var lastComputedMoves: [Int: Int] = [:] // destino -> dado usado (valor)
 
     @State private var showWinnerOverlay: Bool = true
-@State private var showRematchPrompt: Bool = false
+    @State private var showRematchPrompt: Bool = false
     @State private var showRematchDiceRoulette: Bool = false
     @State private var matchFinalizedForSeries: Bool = false
 
@@ -388,35 +390,41 @@ Spacer(minLength: 0)
             }
             .padding(.horizontal, 16)
 
-            // ✅ Feedback cuando hay BAR (si no está bloqueado)
-            if barHasPiecesForCurrent && !barHasNoLegalEntry {
-                Text("Debes salir del BAR primero.")
-                    .font(.footnote.bold())
-                    .padding(.vertical, 8)
-                    .frame(maxWidth: .infinity)
-                    .background(Color.blue.opacity(0.12))
-                    .cornerRadius(12)
-                    .padding(.horizontal, 16)
-            }
+                // 🔷 Banner de estado (UN SOLO BLOQUE)
+                if showPersistentBanner {
+                    Text("Turno perdido — BAR bloqueado")
+                        .font(.footnote.bold())
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Color.pink.opacity(0.25))
+                        .cornerRadius(12)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 6)
 
-            // ✅ Banner persistente: TURNO PERDIDO (hasta que el usuario toque continuar)
-            if barHasPiecesForCurrent && barHasNoLegalEntry {
-                Text("Turno perdido — BAR bloqueado (no hay jugadas legales).")
-                    .font(.footnote.bold())
-                    .padding(.vertical, 10)
-                    .frame(maxWidth: .infinity)
-                    .background(Color.orange.opacity(0.20))
-                    .cornerRadius(12)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 6)
-            } else {
-                Spacer(minLength: 8)
-            }
+                } else if barHasPiecesForCurrent {
+                    Text("Debes salir del BAR primero.")
+                        .font(.footnote.bold())
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(Color.blue.opacity(0.18))
+                        .cornerRadius(12)
+                        .padding(.horizontal, 16)
+
+                } else {
+                    Text("Turno en curso")
+                        .font(.footnote.bold())
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Color(.systemGray5))
+                        .cornerRadius(12)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 6)
+                }
         }
                 .padding(.bottom, 86)
         .background(Color(.systemBackground))
     }
-
+    
     private var barOverlayHint: some View {
         let whereText = (current == casaPiece) ? "abajo" : "arriba"
         if barHasNoLegalEntry {
