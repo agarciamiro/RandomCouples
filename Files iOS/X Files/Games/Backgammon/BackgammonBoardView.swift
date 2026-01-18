@@ -316,11 +316,11 @@ GeometryReader { geo in
 
     private var header: some View {
             VStack(spacing: 8) {
-            Text("TABLERO (24 posiciones)")
-                .font(.headline)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16)
-                .padding(.top, 10)
+            // Text("TABLERO (24 posiciones)")
+            //     .font(.headline)
+            //     .frame(maxWidth: .infinity, alignment: .leading)
+            //     .padding(.horizontal, 16)
+            //     .padding(.top, 10)
 
             // ✅ Layout: izquierda info, centro dados + dirección, derecha jugador
             HStack(alignment: .center, spacing: 14) {
