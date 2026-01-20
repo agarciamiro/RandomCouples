@@ -390,36 +390,30 @@ Spacer(minLength: 0)
             }
             .padding(.horizontal, 16)
 
-                // 🔷 Banner de estado (UN SOLO BLOQUE)
-                if showPersistentBanner {
-                    Text("Turno perdido — BAR bloqueado")
-                        .font(.footnote.bold())
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(Color.pink.opacity(0.25))
-                        .cornerRadius(12)
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 6)
+                // MARK: - Banner permanente (solo color / estado)
+                let bannerColor: Color = {
+                    if isTurnLost {
+                        return Color.pink.opacity(0.25)   // ROSADO: turno perdido
+                    }
+                    if barHasPiecesForCurrent && !barHasNoLegalEntry {
+                        return Color.blue.opacity(0.18)   // CELESTE: aviso BAR con entrada legal
+                    }
+                    return Color.gray.opacity(0.15)       // GRIS: estado neutro
+                }()
 
-                } else if barHasPiecesForCurrent {
-                    Text("Debes salir del BAR primero.")
-                        .font(.footnote.bold())
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
-                        .background(Color.blue.opacity(0.18))
-                        .cornerRadius(12)
-                        .padding(.horizontal, 16)
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(bannerColor)
+                        .frame(height: 44)
 
-                } else {
-                    Text("Turno en curso")
+                    Text(boardHintText)
                         .font(.footnote.bold())
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(Color(.systemGray5))
-                        .cornerRadius(12)
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 6)
+                        .foregroundColor(.primary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 12)
                 }
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 16)
         }
                 .padding(.bottom, 86)
         .background(Color(.systemBackground))
@@ -1302,9 +1296,15 @@ private func barCell(slot: BarSlot, width: CGFloat, height: CGFloat) -> some Vie
 
     // MARK: - Turn management
 
+    private var isTurnLost: Bool {
+        barHasPiecesForCurrent && barHasNoLegalEntry
+    }
+    
     private var canEndTurn: Bool {
         // ✅ Si BAR está bloqueado: se permite terminar turno aunque queden dados
-        if barHasPiecesForCurrent && barHasNoLegalEntry { return true }
+        if barHasPiecesForCurrent && barHasNoLegalEntry {
+            return true
+        }
         if !hasAnyLegalMove() { return true }
         return remainingDiceValues.isEmpty
     }
@@ -1317,21 +1317,29 @@ private func barCell(slot: BarSlot, width: CGFloat, height: CGFloat) -> some Vie
     }
 
     private var boardHintText: String {
+        // 1️⃣ BAR presente
         if barHasPiecesForCurrent {
             if barHasNoLegalEntry {
                 return "BAR bloqueado. No hay jugadas legales. Turno perdido."
             }
             return "Tienes ficha(s) en BAR. Debes salir del BAR primero."
         }
-        if !dice.isEmpty && !hasAnyLegalMove() {
+
+        // 2️⃣ Dados lanzados pero SIN jugadas legales
+        if !dice.isEmpty && !hasAnyLegalMove() && !canEndTurn {
             return "No hay jugadas legales. Turno perdido: toca Continuar."
         }
+
+        // 3️⃣ Fin de turno normal
         if canEndTurn {
             return "Dados consumidos. Puedes pasar al siguiente turno."
         }
+
+        // 4️⃣ Selección
         if selectedFrom == nil {
             return "Toca una casilla con tus fichas para ver destinos posibles."
         }
+
         return "Elige un destino resaltado en verde."
     }
 
