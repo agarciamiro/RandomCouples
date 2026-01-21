@@ -36,6 +36,10 @@ struct BackgammonBoardView: View {
     @State private var serieVisita: Int = 0
     @State private var showPersistentBanner: Bool = false
     
+    private var isG3_DiceConsumed: Bool {
+        !dice.isEmpty && !diceUsed.contains(false)
+    }
+    
     // MARK: - Winner banner
 
     private var winnerSideLabel: String? {
@@ -392,12 +396,20 @@ Spacer(minLength: 0)
 
                 // MARK: - Banner permanente (solo color / estado)
                 let bannerColor: Color = {
+                    
+                    // G3 — Dados consumidos → GRIS
+                    if isG3_DiceConsumed {
+                        return Color.gray.opacity(0.15)
+                    }
+                
                     if isTurnLost || (!dice.isEmpty && !hasAnyLegalMove()) {
                         return Color.pink.opacity(0.25)   // ROSADO: turno perdido (R1 o R2)
                     }
+                    
                     if barHasPiecesForCurrent && !barHasNoLegalEntry {
                         return Color.blue.opacity(0.18)   // CELESTE: aviso BAR con entrada legal
                     }
+                    
                     return Color.gray.opacity(0.15)       // GRIS: estado neutro
                 }()
 
@@ -1318,6 +1330,11 @@ private func barCell(slot: BarSlot, width: CGFloat, height: CGFloat) -> some Vie
 
     private var boardHintText: String {
 
+        // ⚪️ 0) — Dados consumidos. Puedes pasar al siguiente turno
+        if isG3_DiceConsumed {
+            return "Dados consumidos. Puedes pasar al siguiente turno."
+        }
+        
         // 🔴 1) NO hay jugadas legales válidas → ROSADO (terminal)
         if !dice.isEmpty && !hasAnyLegalMove() {
 
@@ -1335,20 +1352,11 @@ private func barCell(slot: BarSlot, width: CGFloat, height: CGFloat) -> some Vie
             return "Debes salir del BAR primero."
         }
 
-        // G3 – Turno perdido
-        // ------------------
-        // Pendiente definir arquitectura correcta para "turn lost".
-        // No se puede setear estado desde propiedades computadas.
-        // Decidir si isTurnLost será:
-        // A) estado (@State) decidido en lógica de turno
-        // B) condición derivada (computed) sin efectos secundarios
-        //
-        // Se deja congelado en versión STABLE.
-        
+        // G3 — Dados consumidos. Puedes pasar al siguiente turno G3 – Turno perdido
         // ⚪️ 3) Fin de turno normal (dados consumidos) → GRIS
-        // if canEndTurn {
-        //     return "Dados consumidos. Puedes pasar al siguiente turno."
-        // }
+        if isG3_DiceConsumed {
+            return "Dados consumidos. Puedes pasar al siguiente turno."
+        }
 
         // ⚪️ 4) Ayuda neutra: sin selección
         if selectedFrom == nil {
