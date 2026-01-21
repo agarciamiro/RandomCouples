@@ -392,8 +392,8 @@ Spacer(minLength: 0)
 
                 // MARK: - Banner permanente (solo color / estado)
                 let bannerColor: Color = {
-                    if isTurnLost {
-                        return Color.pink.opacity(0.25)   // ROSADO: turno perdido
+                    if isTurnLost || (!dice.isEmpty && !hasAnyLegalMove()) {
+                        return Color.pink.opacity(0.25)   // ROSADO: turno perdido (R1 o R2)
                     }
                     if barHasPiecesForCurrent && !barHasNoLegalEntry {
                         return Color.blue.opacity(0.18)   // CELESTE: aviso BAR con entrada legal
@@ -1317,33 +1317,53 @@ private func barCell(slot: BarSlot, width: CGFloat, height: CGFloat) -> some Vie
     }
 
     private var boardHintText: String {
-        // 1️⃣ BAR presente
-        if barHasPiecesForCurrent {
-            if barHasNoLegalEntry {
-                return "BAR bloqueado. No hay jugadas legales. Turno perdido."
+
+        // 🔴 1) NO hay jugadas legales válidas → ROSADO (terminal)
+        if !dice.isEmpty && !hasAnyLegalMove() {
+
+            // R1: NO hay jugadas legales Y hay fichas en BAR
+            if barHasPiecesForCurrent {
+                return "BAR bloqueado. No hay jugadas legales. Pierdes el turno."
             }
-            return "Tienes ficha(s) en BAR. Debes salir del BAR primero."
+
+            // R2: NO hay jugadas legales Y NO hay BAR (tablero bloqueado)
+            return "Espacios bloqueados. No hay jugadas legales. Pierdes el turno."
         }
 
-        // 2️⃣ Dados lanzados pero SIN jugadas legales
-        if !dice.isEmpty && !hasAnyLegalMove() && !canEndTurn {
-            return "No hay jugadas legales. Turno perdido: toca Continuar."
+        // 🔵 2) HAY jugadas legales, pero hay fichas en BAR → CELESTE
+        if barHasPiecesForCurrent {
+            return "Debes salir del BAR primero."
         }
 
-        // 3️⃣ Fin de turno normal
-        if canEndTurn {
-            return "Dados consumidos. Puedes pasar al siguiente turno."
-        }
+        // G3 – Turno perdido
+        // ------------------
+        // Pendiente definir arquitectura correcta para "turn lost".
+        // No se puede setear estado desde propiedades computadas.
+        // Decidir si isTurnLost será:
+        // A) estado (@State) decidido en lógica de turno
+        // B) condición derivada (computed) sin efectos secundarios
+        //
+        // Se deja congelado en versión STABLE.
+        
+        // ⚪️ 3) Fin de turno normal (dados consumidos) → GRIS
+        // if canEndTurn {
+        //     return "Dados consumidos. Puedes pasar al siguiente turno."
+        // }
 
-        // 4️⃣ Selección
+        // ⚪️ 4) Ayuda neutra: sin selección
         if selectedFrom == nil {
             return "Toca una casilla con tus fichas para ver destinos posibles."
         }
 
+        // ⚪️ 5) Ayuda neutra: selección activa
         return "Elige un destino resaltado en verde."
     }
 
     private func nextTurn() {
+        
+        dice = []
+        diceUsed = []
+        
         turnNumber += 1
         current = (current == .white) ? .black : .white
 
