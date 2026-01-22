@@ -37,6 +37,8 @@ struct BackgammonBoardView: View {
     
     @State private var confirmedMovesCount: Int = 1
     
+    @State private var undoStack: [(from: Int, to: Int)] = []
+    
     // MARK: - Undo support (WIP mínimo)
     private struct ExecutedMove {
         let from: Int
@@ -47,13 +49,40 @@ struct BackgammonBoardView: View {
     @State private var executedMoves: [ExecutedMove] = []
     
     private func undoLastMove() {
-        // Desmarca el último dado usado (true -> false)
+        // 1) Deshacer la ficha (último move real)
+        guard let last = undoStack.popLast() else { return }
+
+        // Quitar 1 ficha del destino (to)
+        guard var src = points[last.to] else { return }
+        src.count -= 1
+        if src.count <= 0 {
+            src.count = 0
+            src.piece = .none
+        }
+        points[last.to] = src
+
+        // Devolver 1 ficha al origen (from)
+        guard var dst = points[last.from] else { return }
+        if dst.count == 0 || dst.piece == .none {
+            dst.piece = current
+            dst.count = 1
+        } else if dst.piece == current {
+            dst.count += 1
+        } else {
+            // Caso raro (no debería pasar en undo básico): no hacemos nada más
+        }
+        points[last.from] = dst
+
+        // 2) Deshacer 1 dado consumido (último true -> false)
         for i in diceUsed.indices.reversed() {
             if diceUsed[i] {
                 diceUsed[i] = false
-                return
+                break
             }
         }
+
+        // 3) Limpieza mínima de selección UI
+        clearSelection()
     }
     
     private func undoConfirmedMove() {
@@ -1203,7 +1232,9 @@ private func barCell(slot: BarSlot, width: CGFloat, height: CGFloat) -> some Vie
             }
         }
         points[to] = dst
-
+        
+        undoStack.append((from: from, to: to))
+        
         postMoveSelection(nextFrom: to)
     }
 
