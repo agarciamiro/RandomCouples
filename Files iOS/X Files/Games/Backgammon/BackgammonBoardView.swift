@@ -30,14 +30,53 @@ struct BackgammonBoardView: View {
     // ✅ OFF (fichas retiradas) — solo UI por ahora
     @State private var offCasa: Int = 0
 
-
     // ✅ SERIE (acumulado) — UI-only por ahora
     @State private var serieCasa: Int = 0
     @State private var serieVisita: Int = 0
     @State private var showPersistentBanner: Bool = false
     
+    @State private var confirmedMovesCount: Int = 1
+    
+    // MARK: - Undo support (WIP mínimo)
+    private struct ExecutedMove {
+        let from: Int
+        let to: Int
+        let die: Int
+    }
+
+    @State private var executedMoves: [ExecutedMove] = []
+    
+    private func undoLastMove() {
+        // Desmarca el último dado usado (true -> false)
+        for i in diceUsed.indices.reversed() {
+            if diceUsed[i] {
+                diceUsed[i] = false
+                return
+            }
+        }
+    }
+    
+    private func undoConfirmedMove() {
+        // TODO: revertir UNA jugada confirmada
+        confirmedMovesCount = max(0, confirmedMovesCount - 1)
+    }
+    
     private var isG3_DiceConsumed: Bool {
         !dice.isEmpty && !diceUsed.contains(false)
+    }
+    
+    // MARK: - Action buttons helpers (UI-only)
+
+    private var movesCount: Int {
+        diceUsed.filter { $0 }.count
+    }
+
+    private var isDoubles: Bool {
+        dice.count == 4
+    }
+
+    private var canContinue: Bool {
+        isG3_DiceConsumed
     }
     
     // MARK: - Winner banner
@@ -214,10 +253,10 @@ GeometryReader { geo in
             VStack(spacing: 8) {
                 HStack(spacing: 10) {
                     Button("Regresar") {
-                        // TODO: implementar undo/regresar jugada
+                        undoLastMove()
                     }
                     .buttonStyle(.bordered)
-                    .disabled(true)
+                    .disabled(confirmedMovesCount == 0)
 
                     Button("Cancelar") {
                         clearSelection()
@@ -501,7 +540,6 @@ Spacer(minLength: 0)
         }
         return true
     }
-
 
     // MARK: - B2: OFF highlight (placeholder para compilar)
     // Nota: en B2 real lo haremos dinámico (según si hay retiro posible).
@@ -1234,11 +1272,11 @@ private func barCell(slot: BarSlot, width: CGFloat, height: CGFloat) -> some Vie
         for i in dice.indices {
             if i < diceUsed.count, diceUsed[i] == false, dice[i] == value {
                 diceUsed[i] = true
+                confirmedMovesCount += 1
                 return
             }
         }
     }
-
 
     // ✅ Detecta si hay al menos 1 jugada legal con los dados restantes.
     private func hasAnyLegalMove() -> Bool {
