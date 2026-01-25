@@ -37,6 +37,8 @@ struct BackgammonBoardView: View {
     
     @State private var confirmedMovesCount: Int = 1
     
+    @State private var turnConfirmed: Bool = false
+    
     @State private var undoStack: [(from: Int, to: Int)] = []
     
     // MARK: - Undo support (WIP mínimo)
@@ -85,6 +87,23 @@ struct BackgammonBoardView: View {
         clearSelection()
     }
     
+    private func startNewTurn() {
+        // 1. Reset flags del turno
+        turnConfirmed = false
+        confirmedMovesCount = 0
+
+        // 2. Reset undo
+        undoStack.removeAll()
+
+        // 3. Reset dados (NO relanzar, solo limpiar uso)
+        for i in diceUsed.indices {
+            diceUsed[i] = false
+        }
+
+        // 4. Limpieza UI mínima
+        clearSelection()
+    }
+    
     private func undoConfirmedMove() {
         // TODO: revertir UNA jugada confirmada
         confirmedMovesCount = max(0, confirmedMovesCount - 1)
@@ -92,6 +111,10 @@ struct BackgammonBoardView: View {
     
     private var isG3_DiceConsumed: Bool {
         !dice.isEmpty && !diceUsed.contains(false)
+    }
+    
+    private var shouldShowDiceConsumedMessage: Bool {
+        isG3_DiceConsumed && !turnConfirmed
     }
     
     // MARK: - Action buttons helpers (UI-only)
@@ -294,29 +317,31 @@ GeometryReader { geo in
                     .tint(.secondary)
 
                     Button("Confirmar") {
-                        // TODO: implementar confirmar jugadas
+                        turnConfirmed = true
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(true)
+                    .disabled(!shouldShowDiceConsumedMessage)
                 }
                 .font(.footnote.bold())
                 .controlSize(.small)
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, 16)
-
-                Button {
-                nextTurn()
-            } label: {
-                Text(nextTurnButtonTitle)
-                    .font(.headline.bold())
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-            }
-            .buttonStyle(.borderedProminent)
-            .padding(.horizontal, 16)
-            .padding(.bottom, 12)
-            .background(.ultraThinMaterial)
-            .disabled(!canEndTurn)
+            
+                if turnConfirmed {
+                    Button {
+                        startNewTurn()
+                        nextTurn()
+                    } label: {
+                        Text(nextTurnButtonTitle)
+                            .font(.headline.bold())
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 12)
+                    .background(.ultraThinMaterial)
+                }
             }
         }
         .overlay { winnerOverlay }
@@ -486,11 +511,31 @@ Spacer(minLength: 0)
                         .fill(bannerColor)
                         .frame(height: 44)
 
-                    Text(boardHintText)
-                        .font(.footnote.bold())
-                        .foregroundColor(.primary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 12)
+                    Group {
+                        // 1️⃣ Texto gris: dados consumidos
+                        if shouldShowDiceConsumedMessage {
+                            Text("Dados consumidos")
+                                .font(.footnote.bold())
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        // 2️⃣ Botón azul: pasar turno
+                        else if turnConfirmed {
+                            Button("Puedes pasar al siguiente turno") {
+                                nextTurn()
+                            }
+                            .font(.footnote.bold())
+                            .foregroundColor(.blue)
+                        }
+                        // 3️⃣ Texto normal (jugadas)
+                        else {
+                            Text(boardHintText)
+                                .font(.footnote)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                    }
+                    .padding(.horizontal, 12)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, 16)
@@ -1399,41 +1444,40 @@ private func barCell(slot: BarSlot, width: CGFloat, height: CGFloat) -> some Vie
 
     private var boardHintText: String {
 
-        // ⚪️ 0) — Dados consumidos. Puedes pasar al siguiente turno
-        if isG3_DiceConsumed {
-            return "Dados consumidos. Puedes pasar al siguiente turno."
-        }
-        
-        // 🔴 1) NO hay jugadas legales válidas → ROSADO (terminal)
+        // 🔴 1) NO hay jugadas legales válidas
         if !dice.isEmpty && !hasAnyLegalMove() {
 
-            // R1: NO hay jugadas legales Y hay fichas en BAR
+            // R1: fichas en BAR → turno perdido
             if barHasPiecesForCurrent {
                 return "BAR bloqueado. No hay jugadas legales. Pierdes el turno."
             }
 
-            // R2: NO hay jugadas legales Y NO hay BAR (tablero bloqueado)
+            // R2: tablero bloqueado sin BAR
             return "Espacios bloqueados. No hay jugadas legales. Pierdes el turno."
         }
 
-        // 🔵 2) HAY jugadas legales, pero hay fichas en BAR → CELESTE
+        // 🔵 2) Hay jugadas, pero hay fichas en BAR
         if barHasPiecesForCurrent {
             return "Debes salir del BAR primero."
         }
 
-        // G3 — Dados consumidos. Puedes pasar al siguiente turno G3 – Turno perdido
-        // ⚪️ 3) Fin de turno normal (dados consumidos) → GRIS
-        if isG3_DiceConsumed {
-            return "Dados consumidos. Puedes pasar al siguiente turno."
-        }
-
-        // ⚪️ 4) Ayuda neutra: sin selección
+        // ⚪ 3) Ayuda neutra: sin selección
         if selectedFrom == nil {
             return "Toca una casilla con tus fichas para ver destinos posibles."
         }
 
-        // ⚪️ 5) Ayuda neutra: selección activa
-        return "Elige un destino resaltado en verde."
+        // ⚪ 4) Ayuda neutra: selección activa
+        if selectedFrom != nil {
+            return "Elige un destino resaltado en verde."
+        }
+
+        // ⚫ 5) Fin de turno normal (dados consumidos)
+        if shouldShowDiceConsumedMessage {
+            return "Dados Consumidos"
+        }
+
+        // Fallback de seguridad (no debería llegar nunca)
+        return ""
     }
 
     private func nextTurn() {
