@@ -326,7 +326,6 @@ GeometryReader { geo in
                 .controlSize(.small)
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, 16)
-            
                 if turnConfirmed {
                     Button {
                         startNewTurn()
@@ -490,9 +489,9 @@ Spacer(minLength: 0)
                 // MARK: - Banner permanente (solo color / estado)
                 let bannerColor: Color = {
                     
-                    // G3 — Dados consumidos → GRIS
+                    // G3 – Dados consumidos → VERDE
                     if isG3_DiceConsumed {
-                        return Color.gray.opacity(0.15)
+                        return Color.green.opacity(0.18)
                     }
                 
                     if isTurnLost || (!dice.isEmpty && !hasAnyLegalMove()) {
@@ -512,21 +511,14 @@ Spacer(minLength: 0)
                         .frame(height: 44)
 
                     Group {
-                        // 1️⃣ Texto gris: dados consumidos
+                        // 1️⃣ Texto verde: dados consumidos
                         if shouldShowDiceConsumedMessage {
-                            Text("Dados consumidos")
+                            Text("Dados consumidos: presiona Regresar, Cancelar o Confirmar")
                                 .font(.footnote.bold())
                                 .foregroundColor(.secondary)
                                 .multilineTextAlignment(.center)
                         }
-                        // 2️⃣ Botón azul: pasar turno
-                        else if turnConfirmed {
-                            Button("Puedes pasar al siguiente turno") {
-                                nextTurn()
-                            }
-                            .font(.footnote.bold())
-                            .foregroundColor(.blue)
-                        }
+                        
                         // 3️⃣ Texto normal (jugadas)
                         else {
                             Text(boardHintText)
