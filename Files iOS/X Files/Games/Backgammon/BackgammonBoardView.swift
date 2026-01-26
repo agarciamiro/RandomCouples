@@ -318,6 +318,8 @@ GeometryReader { geo in
 
                     Button("Confirmar") {
                         turnConfirmed = true
+                        startNewTurn()
+                        nextTurn()
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(!shouldShowDiceConsumedMessage)
@@ -326,21 +328,21 @@ GeometryReader { geo in
                 .controlSize(.small)
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, 16)
-                if turnConfirmed {
-                    Button {
-                        startNewTurn()
-                        nextTurn()
-                    } label: {
-                        Text(nextTurnButtonTitle)
-                            .font(.headline.bold())
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 12)
-                    .background(.ultraThinMaterial)
-                }
+                // if turnConfirmed {
+                //     Button {
+                //         startNewTurn()
+                //         nextTurn()
+                //     } label: {
+                //         Text(nextTurnButtonTitle)
+                //             .font(.headline.bold())
+                //             .frame(maxWidth: .infinity)
+                //             .padding(.vertical, 16)
+                //     }
+                //     .buttonStyle(.borderedProminent)
+                //     .padding(.horizontal, 16)
+                //     .padding(.bottom, 12)
+                //     .background(.ultraThinMaterial)
+                // }
             }
         }
         .overlay { winnerOverlay }
