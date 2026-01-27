@@ -41,6 +41,20 @@ struct BackgammonBoardView: View {
     
     @State private var undoStack: [(from: Int, to: Int)] = []
     
+    // MARK: - Turn Snapshot (Cancel support)
+
+    private struct TurnSnapshot {
+        let moveCount: Int
+    }
+
+    @State private var turnSnapshot: TurnSnapshot?
+
+    private func takeTurnSnapshot() {
+        turnSnapshot = TurnSnapshot(
+            moveCount: confirmedMovesCount
+        )
+    }
+    
     // MARK: - Undo support (WIP mínimo)
     private struct ExecutedMove {
         let from: Int
@@ -319,6 +333,7 @@ GeometryReader { geo in
                     Button("Confirmar") {
                         turnConfirmed = true
                         startNewTurn()
+                        turnSnapshot = nil
                         nextTurn()
                     }
                     .buttonStyle(.borderedProminent)
@@ -328,21 +343,7 @@ GeometryReader { geo in
                 .controlSize(.small)
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, 16)
-                // if turnConfirmed {
-                //     Button {
-                //         startNewTurn()
-                //         nextTurn()
-                //     } label: {
-                //         Text(nextTurnButtonTitle)
-                //             .font(.headline.bold())
-                //             .frame(maxWidth: .infinity)
-                //             .padding(.vertical, 16)
-                //     }
-                //     .buttonStyle(.borderedProminent)
-                //     .padding(.horizontal, 16)
-                //     .padding(.bottom, 12)
-                //     .background(.ultraThinMaterial)
-                // }
+                
             }
         }
         .overlay { winnerOverlay }
@@ -1491,6 +1492,10 @@ private func barCell(slot: BarSlot, width: CGFloat, height: CGFloat) -> some Vie
         } else {
             dice = [d1, d2]
             diceUsed = [false, false]
+        }
+        
+        if turnSnapshot == nil {
+            takeTurnSnapshot()
         }
 
         clearSelection()
