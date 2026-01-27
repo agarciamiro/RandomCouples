@@ -35,7 +35,25 @@ struct BackgammonBoardView: View {
     @State private var serieVisita: Int = 0
     @State private var showPersistentBanner: Bool = false
     
-    @State private var confirmedMovesCount: Int = 1
+    @State private var confirmedMovesCount: Int = 0
+    
+    // MARK: - Button state (Punto 2)
+
+    private var canUndo: Bool {
+        confirmedMovesCount >= 1
+    }
+
+    private var canCancel: Bool {
+        if dice.count == 4 {
+            return confirmedMovesCount >= 4
+        } else {
+            return confirmedMovesCount >= 2
+        }
+    }
+
+    private var canConfirm: Bool {
+        canCancel
+    }
     
     @State private var turnConfirmed: Bool = false
     
@@ -96,8 +114,13 @@ struct BackgammonBoardView: View {
                 break
             }
         }
+        
+        // 3) Actualizar contador de jugadas confirmadas
+        if confirmedMovesCount > 0 {
+            confirmedMovesCount -= 1
+        }
 
-        // 3) Limpieza mínima de selección UI
+        // 4) Limpieza mínima de selección UI
         clearSelection()
     }
     
@@ -322,14 +345,16 @@ GeometryReader { geo in
                         undoLastMove()
                     }
                     .buttonStyle(.bordered)
-                    .disabled(confirmedMovesCount == 0)
+                    .tint(canUndo ? .yellow : .secondary)
+                    .disabled(!canUndo)
 
                     Button("Cancelar") {
                         clearSelection()
                     }
                     .buttonStyle(.bordered)
-                    .tint(.secondary)
-
+                    .tint(canCancel ? .red : .secondary)
+                    .disabled(!canCancel)
+                    
                     Button("Confirmar") {
                         turnConfirmed = true
                         startNewTurn()
@@ -337,7 +362,8 @@ GeometryReader { geo in
                         nextTurn()
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(!shouldShowDiceConsumedMessage)
+                    .tint(canConfirm ? .green : .secondary)
+                    .disabled(!canConfirm)
                 }
                 .font(.footnote.bold())
                 .controlSize(.small)
