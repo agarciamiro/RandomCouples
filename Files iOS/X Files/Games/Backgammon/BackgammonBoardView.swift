@@ -39,6 +39,8 @@ struct BackgammonBoardView: View {
     
     @State private var lastMovedCheckerID: Int? = nil
     
+    @State private var movedCheckerIDs: Set<Int> = []
+    
     // MARK: - Button state (Punto 2)
 
     private var canUndo: Bool {
@@ -333,6 +335,8 @@ struct BackgammonBoardView: View {
                         startNewTurn()
                         turnSnapshot = nil
                         nextTurn()
+                        movedCheckerIDs.removeAll()
+                        lastMovedCheckerID = nil
                     }
                     .padding(.vertical, 10)
                     .padding(.horizontal, 18)
@@ -887,7 +891,7 @@ Spacer(minLength: 0)
 
         var body: some View {
             // Opción B: dado “tema” según turno
-            let fill: Color = themeIsBlack ? Color(.systemGray2) : Color(.systemGray6)
+            let fill: Color = themeIsBlack ? .black : Color(.systemGray6)
             let stroke: Color = Color(.systemGray4)
             let pip: Color = themeIsBlack ? .white : .black
 
@@ -1207,7 +1211,7 @@ private func barCell(slot: BarSlot, width: CGFloat, height: CGFloat) -> some Vie
                     ZStack {
                         Circle()
                             .fill(
-                                lastMovedCheckerID == index
+                                movedCheckerIDs.contains(index)
                                 ? Color.yellow.opacity(0.9)
                                 : checkerFillColor(
                                     isBlack: stack.piece == .black,
@@ -1321,6 +1325,7 @@ private func barCell(slot: BarSlot, width: CGFloat, height: CGFloat) -> some Vie
 
     private func applyMove(from: Int, to: Int, usingDieValue dieValue: Int) {
         lastMovedCheckerID = to
+        movedCheckerIDs.insert(to)
         consumeOneDie(value: dieValue)
 
         // ✅ Mover desde BAR
