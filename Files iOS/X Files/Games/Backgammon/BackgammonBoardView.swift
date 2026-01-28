@@ -297,34 +297,48 @@ struct BackgammonBoardView: View {
         VStack(spacing: 8) {
             HStack(spacing: 10) {
 
-                Button("Regresar") {
-                    undoLastMove()
-                }
-                .buttonStyle(.bordered)
-                .tint(canUndo ? Color.yellow : Color(.systemGray3))
-                .disabled(!canUndo)
+                // 🔴 CANCELAR (IZQUIERDA)
+                    Button("Cancelar") {
+                        while confirmedMovesCount > 0 {
+                            undoLastMove()
+                        }
+                        confirmedMovesCount = 0
+                        clearSelection()
+                    }
+                    .padding(.vertical, 10)
+                    .padding(.horizontal, 18)
+                    .font(.footnote.bold())
+                    .foregroundStyle(.white)
+                    .background(canCancel ? Color.red : Color(.systemGray4))
+                    .clipShape(Capsule())
+                    .disabled(!canCancel)
 
-                Button("Cancelar") {
-                    while confirmedMovesCount > 0 {
+                // 🟡 REGRESAR (CENTRO)
+                    Button("Regresar") {
                         undoLastMove()
                     }
+                    .padding(.vertical, 10)
+                    .padding(.horizontal, 18)
+                    .font(.footnote.bold())
+                    .foregroundStyle(.white)
+                    .background(canUndo ? Color.yellow : Color(.systemGray4))
+                    .clipShape(Capsule())
+                    .disabled(!canUndo)
 
-                    confirmedMovesCount = 0
-                    clearSelection()
-                }
-                .buttonStyle(.bordered)
-                .tint(canCancel ? Color.red : Color(.systemGray3))
-                .disabled(!canCancel)
-
-                Button("Confirmar") {
-                    turnConfirmed = true
-                    startNewTurn()
-                    turnSnapshot = nil
-                    nextTurn()
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(canConfirm ? Color.green : Color(.systemGray3))
-                .disabled(!canConfirm)
+                // 🟢 CONFIRMAR (DERECHA)
+                    Button("Confirmar") {
+                        turnConfirmed = true
+                        startNewTurn()
+                        turnSnapshot = nil
+                        nextTurn()
+                    }
+                    .padding(.vertical, 10)
+                    .padding(.horizontal, 18)
+                    .font(.footnote.bold())
+                    .foregroundStyle(.white)
+                    .background(canConfirm ? Color.green : Color(.systemGray4))
+                    .clipShape(Capsule())
+                    .disabled(!canConfirm)
             }
             .font(.footnote.bold())
             .controlSize(.small)
