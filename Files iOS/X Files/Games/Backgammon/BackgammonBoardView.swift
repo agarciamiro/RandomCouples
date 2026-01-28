@@ -290,6 +290,49 @@ struct BackgammonBoardView: View {
         (casaPiece == .black) ? .white : .black
     }
 
+    // ===============================
+    // NUEVO BLOQUE (VA FUERA DEL body)
+    // ===============================
+    private var bottomButtons: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 10) {
+
+                Button("Regresar") {
+                    undoLastMove()
+                }
+                .buttonStyle(.bordered)
+                .tint(canUndo ? Color.yellow : Color(.systemGray3))
+                .disabled(!canUndo)
+
+                Button("Cancelar") {
+                    while confirmedMovesCount > 0 {
+                        undoLastMove()
+                    }
+
+                    confirmedMovesCount = 0
+                    clearSelection()
+                }
+                .buttonStyle(.bordered)
+                .tint(canCancel ? Color.red : Color(.systemGray3))
+                .disabled(!canCancel)
+
+                Button("Confirmar") {
+                    turnConfirmed = true
+                    startNewTurn()
+                    turnSnapshot = nil
+                    nextTurn()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(canConfirm ? Color.green : Color(.systemGray3))
+                .disabled(!canConfirm)
+            }
+            .font(.footnote.bold())
+            .controlSize(.small)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 16)
+        }
+    }
+    
     // MARK: - UI
 
     var body: some View {
@@ -339,39 +382,9 @@ GeometryReader { geo in
             //     .padding(.bottom, 86)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            VStack(spacing: 8) {
-                HStack(spacing: 10) {
-                    Button("Regresar") {
-                        undoLastMove()
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(canUndo ? .yellow : .secondary)
-                    .disabled(!canUndo)
-
-                    Button("Cancelar") {
-                        clearSelection()
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(canCancel ? .red : .secondary)
-                    .disabled(!canCancel)
-                    
-                    Button("Confirmar") {
-                        turnConfirmed = true
-                        startNewTurn()
-                        turnSnapshot = nil
-                        nextTurn()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(canConfirm ? .green : .secondary)
-                    .disabled(!canConfirm)
-                }
-                .font(.footnote.bold())
-                .controlSize(.small)
-                .frame(maxWidth: .infinity)
-                .padding(.horizontal, 16)
-                
-            }
+            bottomButtons
         }
+        
         .overlay { winnerOverlay }
 .navigationTitle("Tablero")
 
