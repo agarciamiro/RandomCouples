@@ -37,6 +37,8 @@ struct BackgammonBoardView: View {
     
     @State private var confirmedMovesCount: Int = 0
     
+    @State private var lastMovedCheckerID: Int? = nil
+    
     // MARK: - Button state (Punto 2)
 
     private var canUndo: Bool {
@@ -345,6 +347,24 @@ struct BackgammonBoardView: View {
             .frame(maxWidth: .infinity)
             .padding(.horizontal, 16)
         }
+    }
+    
+    // ===============================
+    // PASO 1: Fichas movidas (UI only)
+    // ===============================
+
+    // IDs de fichas movidas en el turno (visual)
+    @State private var movedCheckers: Set<Int> = []
+
+    // Color de ficha según si fue movida en este turno
+    private func checkerFillColor(
+        isBlack: Bool,
+        checkerID: Int
+    ) -> Color {
+        if movedCheckers.contains(checkerID) {
+            return Color.yellow.opacity(0.95) // amarillo fosforescente
+        }
+        return isBlack ? Color.black : Color.white
     }
     
     // MARK: - UI
@@ -1186,7 +1206,14 @@ private func barCell(slot: BarSlot, width: CGFloat, height: CGFloat) -> some Vie
                 } else {
                     ZStack {
                         Circle()
-                            .fill(stack.piece == .black ? Color(.label) : Color(.systemBackground))
+                            .fill(
+                                lastMovedCheckerID == index
+                                ? Color.yellow.opacity(0.9)
+                                : checkerFillColor(
+                                    isBlack: stack.piece == .black,
+                                    checkerID: index
+                                )
+                            )
                             .overlay(Circle().stroke(Color(.separator), lineWidth: 1))
 
                         Text("\(stack.count)")
@@ -1293,6 +1320,7 @@ private func barCell(slot: BarSlot, width: CGFloat, height: CGFloat) -> some Vie
     }
 
     private func applyMove(from: Int, to: Int, usingDieValue dieValue: Int) {
+        lastMovedCheckerID = to
         consumeOneDie(value: dieValue)
 
         // ✅ Mover desde BAR
