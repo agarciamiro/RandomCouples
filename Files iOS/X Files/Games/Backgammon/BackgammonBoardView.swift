@@ -395,22 +395,30 @@ struct BackgammonBoardView: View {
             .padding(.bottom, 2)
             .offset(x: 6, y: -17)
 
-GeometryReader { geo in
-                ScrollView(.horizontal, showsIndicators: false) {
-                    ZStack {
-                        boardGrid(availableWidth: geo.size.width)
-                            .frame(minWidth: geo.size.width, alignment: .center) // ✅ clave: centra y evita “corte” a la derecha
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 14)
-                            .opacity(barHasPiecesForCurrent ? 0.88 : 1.0)
+            GeometryReader { geo in
+                HStack {
+                    Spacer(minLength: 0)
 
-                        // ✅ Overlay claro (NO bloquea el BAR)
+                    ZStack {
+                        boardGrid(
+                            availableWidth: geo.size.width - 16   // ← margen real 1–2 mm por lado
+                        )
+                        .frame(
+                            maxWidth: geo.size.width - 16,
+                            alignment: .center
+                        )
+                        .padding(.vertical, 14)
+                        .opacity(barHasPiecesForCurrent ? 0.88 : 1.0)
+
+                        // Overlay claro (NO bloquea el BAR)
                         if barHasPiecesForCurrent {
                             EmptyView()
                                 .padding(.horizontal, 24)
                                 .allowsHitTesting(false)
                         }
                     }
+
+                    Spacer(minLength: 0)
                 }
             }
 
