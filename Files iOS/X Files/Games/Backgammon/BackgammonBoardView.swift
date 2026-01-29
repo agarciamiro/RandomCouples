@@ -529,7 +529,7 @@ struct BackgammonBoardView: View {
                             .background(Color(.systemGray5))
                             .clipShape(Capsule())
                             .foregroundColor(.secondary)
-                    }
+                            .offset(x: 8)                    }
 
                 }
 
@@ -566,7 +566,8 @@ Spacer(minLength: 0)
                         .lineLimit(1)
                         .minimumScaleFactor(0.85)
                         .clipShape(Capsule())
-
+                        .offset(x: -8)
+                    
                     Text(nameForCurrent())
                         .font(.footnote.bold())
                         .foregroundColor(.secondary)
