@@ -1,92 +1,17 @@
 import SwiftUI
-
-// ===============================================================
-//  Helpers de texto
-// ===============================================================
-
-/// Normaliza nombres: "  lUiS  pErEz " → "Luis Perez"
-/// - Quita espacios extra
-/// - Capitaliza cada palabra
-/// - Se usa para: validar (min 4 letras / duplicados) y para pasar a Ruleta
-func normalizarNombre(_ texto: String) -> String {
-
-    let trimmed = texto.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !trimmed.isEmpty else { return "" }
-
-    // Colapsa espacios múltiples (por ejemplo: "Luis   Perez" -> ["Luis","Perez"])
-    let parts = trimmed
-        .split(whereSeparator: { $0.isWhitespace })
-        .map(String.init)
-
-    // Capitaliza cada palabra (primera letra mayúscula, resto minúscula)
-    let normalizedWords = parts.map { word -> String in
-        let lower = word.lowercased()
-        let first = lower.prefix(1).uppercased()
-        let rest = lower.dropFirst()
-        return first + rest
-    }
-
-    return normalizedWords.joined(separator: " ")
-}
-
-/// Cuenta letras (A–Z / unicode letters) ignorando espacios y símbolos
-/// - Regla: mínimo 4 letras por nombre (ej: "Ana" falla, "Juan" pasa)
-func cuentaLetras(_ texto: String) -> Int {
-    texto.filter { $0.isLetter }.count
-}
-
-/// Capitalización “en vivo” (suave) para el TextField:
-/// - Solo asegura mayúscula al inicio de cada palabra mientras tipeas.
-/// - NO recorta espacios, NO colapsa espacios múltiples, NO fuerza minúsculas.
-/// - Objetivo UX: "a" -> "A" al instante; "aaaa" -> "Aaaa"
-func capitalizarSuaveEnVivo(_ texto: String) -> String {
-
-    guard !texto.isEmpty else { return "" }
-
-    var resultado = ""
-    var debeMayuscula = true
-
-    for ch in texto {
-
-        if ch.isWhitespace {
-            // Mantener espacios tal cual (no normalizar mientras se escribe)
-            resultado.append(ch)
-            debeMayuscula = true
-            continue
-        }
-
-        if debeMayuscula, ch.isLetter {
-            // Solo la primera letra de cada palabra se vuelve mayúscula
-            resultado.append(String(ch).uppercased())
-            debeMayuscula = false
-        } else {
-            // El resto queda como lo escribió el usuario
-            resultado.append(ch)
-            debeMayuscula = false
-        }
-    }
-
-    return resultado
-}
-
-
-// ===============================================================
-//  Vista principal: IngresarNombresView
-// ===============================================================
+import UIKit
 
 struct IngresarNombresView: View {
 
-    // -----------------------------------------------------------
+    // ---------------------------------------------------------
     // Inputs
-    // -----------------------------------------------------------
-
+    // ---------------------------------------------------------
     let teamCount: Int
     var maxJugadores: Int { teamCount * 2 }
 
-    // -----------------------------------------------------------
+    // ---------------------------------------------------------
     // State
-    // -----------------------------------------------------------
-
+    // ---------------------------------------------------------
     @State private var nombres: [String]
 
     @State private var mostrarAlerta: Bool = false
@@ -94,171 +19,157 @@ struct IngresarNombresView: View {
 
     @State private var irARuleta: Bool = false
 
-    // Manejo de foco para "Next/Done" en teclado
-    @FocusState private var foco: Int?
+    @FocusState private var focusedIndex: Int?
 
-    // -----------------------------------------------------------
+    // ---------------------------------------------------------
     // Init
-    // -----------------------------------------------------------
-
+    // ---------------------------------------------------------
     init(teamCount: Int) {
         self.teamCount = teamCount
         let max = teamCount * 2
         _nombres = State(initialValue: Array(repeating: "", count: max))
     }
 
-    // -----------------------------------------------------------
-    // Computed: nombres normalizados (mismo tamaño que maxJugadores)
-    // -----------------------------------------------------------
-
-    /// Importante:
-    /// - Aquí sí normalizamos (trim + colapsa espacios + capitaliza palabras).
-    /// - Esta lista es la que se usa para:
-    ///   1) Validación de 4 letras
-    ///   2) Validación de duplicados
-    ///   3) Enviar a Ruleta
-    private var nombresNormalizados: [String] {
-        nombres.map { normalizarNombre($0) }
+    // ---------------------------------------------------------
+    // Validation (MISMO CRITERIO QUE BACKGAMMON)
+    // ---------------------------------------------------------
+    private var nombresTrimmed: [String] {
+        nombres.map { trimmed($0) }
     }
 
-    // -----------------------------------------------------------
-    // Computed: reglas de validación
-    // -----------------------------------------------------------
-
-    /// Validez: todos llenos + mínimo 4 letras
-    private var todosValidos: Bool {
-        let lista = nombresNormalizados
+    private var isValid: Bool {
+        let lista = nombresTrimmed.map { $0.lowercased() }
         guard lista.count == maxJugadores else { return false }
-        return lista.allSatisfy { !$0.isEmpty && cuentaLetras($0) >= 4 }
+        guard lista.allSatisfy({ countLetters($0) >= 4 }) else { return false }
+        return Set(lista).count == lista.count
     }
 
-    /// Duplicados case-insensitive, basado en normalizado
-    private var hayDuplicados: Bool {
-        let lista = nombresNormalizados.map { $0.lowercased() }
-        return Set(lista).count != lista.count
-    }
-
-    // -----------------------------------------------------------
+    // ---------------------------------------------------------
     // UI
-    // -----------------------------------------------------------
-
+    // ---------------------------------------------------------
     var body: some View {
+        VStack(spacing: 18) {
 
-        VStack(spacing: 16) {
+            VStack(spacing: 6) {
+                Text("Billar")
+                    .font(.title.bold())
+                Text("Ingresar jugadores")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            .padding(.top, 10)
 
-            // ---------------------------------------------------
-            // Header
-            // ---------------------------------------------------
+            VStack(spacing: 12) {
 
-            Text("Ingresar jugadores")
-                .font(.title.bold())
-
-            Text("Mínimo 4 letras por nombre")
-                .font(.caption)
-                .foregroundColor(.secondary)
-
-            // ---------------------------------------------------
-            // Lista de jugadores
-            // ---------------------------------------------------
-
-            List {
                 ForEach(nombres.indices, id: \.self) { index in
-
                     TextField(
                         "Jugador \(index + 1)",
-                        text: Binding(
-                            get: {
-                                nombres[index]
-                            },
-                            set: { nuevo in
-
-                                // ✅ UX: capitaliza “en vivo” la primera letra
-                                //    - Sin tocar tu normalización “real”
-                                //    - Sin romper la regla de 4 letras ni duplicados
-                                nombres[index] = capitalizarSuaveEnVivo(nuevo)
-                            }
-                        )
+                        text: $nombres[index]
                     )
-                    .textInputAutocapitalization(.words)   // ayuda del teclado
-                    .autocorrectionDisabled()              // evita autocorrecciones raras
-                    .focused($foco, equals: index)
+                    .textInputAutocapitalization(.characters)
+                    .autocorrectionDisabled(true)
+                    .keyboardType(.default)
                     .submitLabel(index == maxJugadores - 1 ? .done : .next)
+                    .focused($focusedIndex, equals: index)
                     .onSubmit {
-                        // Mover foco al siguiente input o cerrar teclado
                         if index < maxJugadores - 1 {
-                            foco = index + 1
+                            focusedIndex = index + 1
                         } else {
-                            foco = nil
+                            focusedIndex = nil
                         }
                     }
+                    .onChange(of: nombres[index]) { _, newValue in
+                        let cleaned = normalizeLive(newValue)
+                        if cleaned != newValue {
+                            nombres[index] = cleaned
+                        }
+                    }
+                    .textFieldStyle(.roundedBorder)
                 }
-            }
 
-            // ---------------------------------------------------
-            // Botón continuar
-            // ---------------------------------------------------
+                HStack {
+                    Text("✅ Mínimo 4 letras c/u")
+                    Spacer()
+                    Text("🚫 Nombres iguales")
+                }
+                .font(.footnote)
+                .foregroundColor(.secondary)
+                .padding(.top, 2)
+            }
+            .padding(.horizontal, 18)
 
             Button {
-
-                // -----------------------------
-                // Validación al tocar Continuar
-                // -----------------------------
-
-                if !todosValidos {
-                    mensajeAlerta = "Completa los \(maxJugadores) nombres (mínimo 4 letras cada uno)."
-                    mostrarAlerta = true
-                    return
-                }
-
-                if hayDuplicados {
-                    mensajeAlerta = "Hay nombres duplicados. Corrígelos para continuar."
-                    mostrarAlerta = true
-                    return
-                }
-
-                // -----------------------------
-                // OK → navegar a Ruleta
-                // -----------------------------
-
-                foco = nil
-                irARuleta = true
-
+                attemptContinue()
             } label: {
-
-                Text("Continuar → Ruleta")
+                Text("Continuar")
                     .font(.headline)
-                    .padding()
                     .frame(maxWidth: .infinity)
-                    .background((todosValidos && !hayDuplicados) ? Color.accentColor : Color.gray)
-                    .foregroundColor(.white)
-                    .cornerRadius(12)
+                    .padding(.vertical, 12)
             }
+            .buttonStyle(.borderedProminent)
+            .padding(.horizontal, 18)
+            .disabled(!isValid)
 
-            Spacer(minLength: 6)
+            Spacer()
         }
-        .padding()
-
-        // -------------------------------------------------------
-        // Navegación moderna (iOS 16+)
-        // -------------------------------------------------------
-        .navigationDestination(isPresented: $irARuleta) {
-            RuletaView(jugadores: nombresNormalizados)
-        }
-
-        // -------------------------------------------------------
-        // Alertas
-        // -------------------------------------------------------
-        .alert("Revisar nombres", isPresented: $mostrarAlerta) {
-            Button("Entendido", role: .cancel) {}
+        .padding(.bottom, 14)
+        .alert("Atención", isPresented: $mostrarAlerta) {
+            Button("OK", role: .cancel) { }
         } message: {
             Text(mensajeAlerta)
         }
-
-        // -------------------------------------------------------
-        // Autofocus inicial
-        // -------------------------------------------------------
-        .onAppear {
-            foco = 0
+        .navigationDestination(isPresented: $irARuleta) {
+            RuletaView(jugadores: nombresTrimmed)
         }
+        .onAppear {
+            focusedIndex = 0
+        }
+    }
+
+    // ---------------------------------------------------------
+    // Actions
+    // ---------------------------------------------------------
+    private func attemptContinue() {
+
+        let lista = nombresTrimmed
+
+        guard lista.allSatisfy({ countLetters($0) >= 4 }) else {
+            mensajeAlerta = "Cada nombre debe tener mínimo 4 letras."
+            mostrarAlerta = true
+            return
+        }
+
+        guard Set(lista.map { $0.lowercased() }).count == lista.count else {
+            mensajeAlerta = "Los nombres deben ser diferentes."
+            mostrarAlerta = true
+            return
+        }
+
+        focusedIndex = nil
+        irARuleta = true
+    }
+
+    // ---------------------------------------------------------
+    // Helpers (MISMO SISTEMA QUE BACKGAMMON)
+    // ---------------------------------------------------------
+    private func normalizeLive(_ input: String) -> String {
+        let collapsed = collapseSpaces(input)
+        let trimmedValue = collapsed.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmedValue.uppercased(with: Locale(identifier: "es_PE"))
+    }
+
+    private func trimmed(_ s: String) -> String {
+        collapseSpaces(s)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .uppercased(with: Locale(identifier: "es_PE"))
+    }
+
+    private func collapseSpaces(_ s: String) -> String {
+        s.split(whereSeparator: { $0 == " " || $0 == "\n" || $0 == "\t" })
+            .joined(separator: " ")
+    }
+
+    private func countLetters(_ s: String) -> Int {
+        s.filter { $0.isLetter }.count
     }
 }
