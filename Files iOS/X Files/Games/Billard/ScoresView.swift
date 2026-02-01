@@ -35,6 +35,7 @@ struct ScoresView: View {
     @State var bola8FueAdelantada = false
     @State var bola8FueIncorrecta = false
     @State var troneraCantada: Int = 1
+    @State private var selectedBall: Int? = nil
 
     // ✅ Pantalla final (2 botones)
     @State private var mostrarPantallaFinal = false
@@ -421,6 +422,31 @@ extension ScoresView {
                     gridBolas(bolasImpar, tipo: .impar)
                 }
             }
+            
+            // PASO 3.2 — Confirmación inline
+            if let ball = selectedBall {
+                VStack(spacing: 8) {
+                    Text("¿Anotar bola \(ball) para \(turnos.turnoActual.tipo.titulo) — \(turnos.turnoActual.jugadorNombre)?")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+
+                    HStack(spacing: 12) {
+                        Button("Cancelar") {
+                            selectedBall = nil
+                        }
+                        .buttonStyle(.bordered)
+
+                        Button("Confirmar") {
+                            registrarBola(numero: ball)
+                            selectedBall = nil
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                }
+                .padding(10)
+                .background(Color(.secondarySystemBackground))
+                .cornerRadius(12)
+            }
 
             if !juegoFinalizado {
                 Divider().padding(.top, 2)
@@ -497,20 +523,46 @@ extension ScoresView {
     }
 
     func bolaChip(numero: Int, tipo: TipoEquipo) -> some View {
-        let marcada = (tipo == .par) ? metidasPar.contains(numero) : metidasImpar.contains(numero)
+        let marcada = (tipo == .par)
+            ? metidasPar.contains(numero)
+            : metidasImpar.contains(numero)
+
         let color: Color = (tipo == .par) ? .blue : .red
+        let seleccionada = selectedBall == numero
 
         return Button {
             guard !juegoFinalizado else { return }
-            if marcada { desmarcarBola(numero: numero) }
+
+            if !marcada {
+                // PASO 3.1: solo selección visual (toggle)
+                selectedBall = (seleccionada ? nil : numero)
+            } else {
+                // comportamiento existente (NO se modifica)
+                desmarcarBola(numero: numero)
+            }
         } label: {
             Circle()
-                .fill(marcada ? color.opacity(0.92) : Color.gray.opacity(0.12))
+                .fill(
+                    marcada
+                    ? color.opacity(0.92)
+                    : Color.gray.opacity(0.25)
+                )
                 .frame(width: 30, height: 30)
+                .overlay(
+                    Circle()
+                        .stroke(
+                            seleccionada ? Color.accentColor : Color.clear,
+                            lineWidth: 3
+                        )
+                )
                 .overlay(
                     Text("\(numero)")
                         .font(.caption2.bold())
-                        .foregroundColor(marcada ? .white : .primary)
+                        .foregroundColor(
+                            marcada
+                            ? .white
+                            : (seleccionada ? Color.accentColor : .primary)
+                        )
                 )
         }
         .buttonStyle(.plain)
