@@ -348,8 +348,11 @@ extension ScoresView {
                         .font(.caption2)
                         .foregroundColor(.secondary)
 
-                    Text("\(turnos.turnoActual.tipo.titulo) — \(turnos.turnoActual.jugadorNombre)")
+                    Text("\(turnos.turnoActual.tipo.titulo) – \(turnos.turnoActual.jugadorNombre)")
                         .font(.caption.bold())
+                        .foregroundColor(
+                            turnos.turnoActual.tipo == .par ? .blue : .red
+                        )
                         .lineLimit(1)
                         .minimumScaleFactor(0.75)
 
@@ -438,6 +441,35 @@ extension ScoresView {
 
                         Button("Confirmar") {
                             registrarBola(numero: ball)
+                            selectedBall = nil
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                }
+                
+            
+                .padding(10)
+                .background(Color(.secondarySystemBackground))
+                .cornerRadius(12)
+            }
+            
+            // PASO 3.3 — Confirmación inline bola 8
+            if selectedBall == 8 {
+                VStack(spacing: 8) {
+
+                    Text("¿Registrar bola 8 para \(turnos.turnoActual.tipo.titulo) — \(turnos.turnoActual.jugadorNombre)?")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+
+                    HStack(spacing: 12) {
+
+                        Button("Cancelar") {
+                            selectedBall = nil
+                        }
+                        .buttonStyle(.bordered)
+
+                        Button("Confirmar") {
+                            mostrarSheetBola8 = true
                             selectedBall = nil
                         }
                         .buttonStyle(.borderedProminent)
@@ -532,7 +564,12 @@ extension ScoresView {
 
         return Button {
             guard !juegoFinalizado else { return }
-
+            
+            if numero == 8 {
+                selectedBall = (seleccionada ? nil : 8)
+                return
+            }
+            
             if !marcada {
                 // PASO 3.1: solo selección visual (toggle)
                 selectedBall = (seleccionada ? nil : numero)
