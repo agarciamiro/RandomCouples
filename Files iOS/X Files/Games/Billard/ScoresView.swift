@@ -565,6 +565,11 @@ extension ScoresView {
         return Button {
             guard !juegoFinalizado else { return }
             
+            // 🔒 BLOQUEO UI: solo permitir seleccionar bolas del turno actual
+            guard tipo == turnos.turnoActual.tipo else {
+                return
+            }
+            
             if numero == 8 {
                 selectedBall = (seleccionada ? nil : 8)
                 return
@@ -585,6 +590,12 @@ extension ScoresView {
                     : Color.gray.opacity(0.25)
                 )
                 .frame(width: 30, height: 30)
+            
+                // UX A2 — deshabilitar visualmente bolas NO del turno
+                .opacity(tipo == turnos.turnoActual.tipo ? 1.0 : 0.25)
+                .saturation(tipo == turnos.turnoActual.tipo ? 1.0 : 0.0)
+                .allowsHitTesting(tipo == turnos.turnoActual.tipo)
+            
                 .overlay(
                     Circle()
                         .stroke(
@@ -819,6 +830,11 @@ extension ScoresView {
             tipoBola = .impar
             if metidasImpar.contains(numero) { return }
         } else { return }
+        
+        // ⛔️ BLOQUEO DURO: la bola debe coincidir con el turno
+        guard tipoBola == turnos.turnoActual.tipo else {
+            return
+        }
 
         let tipoTurno = turnos.turnoActual.tipo
         let anotoValida = (tipoBola == tipoTurno)
