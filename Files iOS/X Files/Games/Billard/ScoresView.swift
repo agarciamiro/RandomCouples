@@ -36,7 +36,11 @@ struct ScoresView: View {
     @State var bola8FueIncorrecta = false
     @State var troneraCantada: Int = 1
     @State private var selectedBall: Int? = nil
-
+    @State var bola8Declarada = false
+    @State private var mostrarConfirmacionBola8Adelantada = false
+    @State private var bola8EnAlerta = false
+    @State private var bola8AlertaActiva = false
+    
     // ✅ Pantalla final (2 botones)
     @State private var mostrarPantallaFinal = false
 
@@ -143,8 +147,59 @@ struct ScoresView: View {
         }
 
         // Bola 8
-        .sheet(isPresented: $mostrarSheetBola8) { bola8Sheet }
+        .sheet(isPresented: $mostrarConfirmacionBola8Adelantada) {
+            VStack(spacing: 16) {
 
+                Text("⚠️ Bola 8 adelantada")
+                    .font(.headline)
+
+                Text("¿Confirmas que el jugador pierde la partida?")
+                    .font(.subheadline)
+                    .multilineTextAlignment(.center)
+
+                HStack(spacing: 12) {
+
+                    Button("Cancelar") {
+                        mostrarConfirmacionBola8Adelantada = false
+                        
+                        let equipoTermino =
+                            (turnos.turnoActual.tipo == .par && metidasPar.count == 7) ||
+                            (turnos.turnoActual.tipo == .impar && metidasImpar.count == 7)
+
+                        if !equipoTermino {
+                            bola8AlertaActiva = false
+                        }
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button("Confirmar") {
+
+                        // 1) Cerrar sheet + reset de alerta (amarillo)
+                        mostrarConfirmacionBola8Adelantada = false
+                        bola8AlertaActiva = false
+
+                        // 2) Marcar resultado de “bola 8 adelantada”
+                        let perdedor = turnos.turnoActual.tipo
+                        let ganador: TipoEquipo = (perdedor == .par) ? .impar : .par
+
+                        bola8FueAdelantada = true
+                        ganadorPor8 = ganador
+                        bola8Resuelta = true
+
+                        // 3) Mostrar pantalla final
+                        mostrarPantallaFinal = true
+                    }
+                    
+                    .buttonStyle(.borderedProminent)
+                }
+            }
+            .padding()
+        }
+        
+        .sheet(isPresented: $mostrarSheetBola8) {
+            bola8Sheet
+        }
+        
         // ✅ Pantalla final con SOLO 2 botones
         .fullScreenCover(isPresented: $mostrarPantallaFinal) {
             PantallaFinalPartida(
@@ -426,8 +481,55 @@ extension ScoresView {
                 }
             }
             
+            // Banner Bola 8 — ÚNICO (siempre visible: informativo / alerta / declaración)
+            let equipoTerminoSusBolas =
+                (turnos.turnoActual.tipo == .par && metidasPar.count == 7) ||
+                (turnos.turnoActual.tipo == .impar && metidasImpar.count == 7)
+
+            Button {
+                if !bola8AlertaActiva {
+                    // Primer toque → declarar intención (amarillo)
+                    bola8AlertaActiva = true
+                } else {
+                    // Segundo toque → decidir según contexto
+                    // Recalcular estado real (evita inconsistencias de render)
+                    let equipoTermino =
+                        (turnos.turnoActual.tipo == .par && metidasPar.count == 7) ||
+                        (turnos.turnoActual.tipo == .impar && metidasImpar.count == 7)
+
+                    if equipoTermino {
+                        // Flujo correcto → selección de tronera
+                        mostrarSheetBola8 = true
+                    } else {
+                        // Bola 8 adelantada
+                        mostrarConfirmacionBola8Adelantada = true
+                    }
+                }
+            } label: {
+                Text("🎱 Bola 8")
+                    .font(.caption.bold())
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 10)
+                    .background(
+                        bola8AlertaActiva
+                        ? Color.yellow.opacity(0.85)
+                        : Color.gray.opacity(0.25)
+                    )
+                    .foregroundColor(bola8AlertaActiva ? .black : .secondary)
+                    .cornerRadius(12)
+            }
+            
+                    .onChange(of: equipoTerminoSusBolas) { _, nuevoValor in
+                        if nuevoValor {
+                            bola8AlertaActiva = true
+                        }
+                    }
+            
             // PASO 3.2 — Confirmación inline
-            if let ball = selectedBall {
+            if let ball = selectedBall,
+               ((bolasPar.contains(ball) && turnos.turnoActual.tipo == .par) ||
+                (bolasImpar.contains(ball) && turnos.turnoActual.tipo == .impar)) {
                 VStack(spacing: 8) {
                     Text("¿Anotar bola \(ball) para \(turnos.turnoActual.tipo.titulo) — \(turnos.turnoActual.jugadorNombre)?")
                         .font(.footnote)
@@ -469,6 +571,7 @@ extension ScoresView {
                         .buttonStyle(.bordered)
 
                         Button("Confirmar") {
+                            bola8Declarada = true
                             mostrarSheetBola8 = true
                             selectedBall = nil
                         }
@@ -480,65 +583,6 @@ extension ScoresView {
                 .cornerRadius(12)
             }
 
-            if !juegoFinalizado {
-                Divider().padding(.top, 2)
-
-                Button { registrarBola8Adelantada() } label: {
-                    HStack(spacing: 8) {
-                        Circle()
-                            .fill(Color.black.opacity(0.85))
-                            .frame(width: 20, height: 20)
-                            .overlay(Text("8").font(.caption2.bold()).foregroundColor(.white))
-
-                        Text("Bola #8 ingresada antes del final del juego")
-                            .font(.caption.bold())
-                            .lineLimit(2)
-                            .minimumScaleFactor(0.75)
-
-                        Spacer()
-                    }
-                    .padding(.vertical, 8)
-                    .padding(.horizontal, 10)
-                    .frame(maxWidth: .infinity)
-                    .background(Color.yellow.opacity(0.85))
-                    .foregroundColor(.black)
-                    .cornerRadius(12)
-                }
-
-                if (metidasPar.count == 7 || metidasImpar.count == 7) {
-                    let t =
-                    (metidasPar.count == 7 && metidasImpar.count == 7)
-                    ? "🎱 Ambos ya pueden cantar la 8"
-                    : (metidasPar.count == 7 ? "🎱 PAR ya puede cantar la 8" : "🎱 IMPAR ya puede cantar la 8")
-
-                    Text(t)
-                        .font(.caption.bold())
-                        .padding(.vertical, 6)
-                        .frame(maxWidth: .infinity)
-                        .background(Color.green.opacity(0.16))
-                        .cornerRadius(12)
-
-                    let colorFondo: Color = {
-                        if metidasPar.count == 7 && metidasImpar.count < 7 { return .blue }
-                        if metidasImpar.count == 7 && metidasPar.count < 7 { return .red }
-                        return .green
-                    }()
-
-                    Button { abrirRegistroBola8() } label: {
-                        Text("🎱 Registrar bola 8 (turno: \(turnos.turnoActual.tipo.titulo))")
-                            .font(.caption.bold())
-                            .padding(.vertical, 9)
-                            .frame(maxWidth: .infinity)
-                            .background(colorFondo.opacity(0.92))
-                            .foregroundColor(.white)
-                            .cornerRadius(12)
-                    }
-                }
-
-                Text("Tip: Las bolas normales se anotan con el “+” del jugador en turno.")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-            }
         }
         .padding(10)
         .background(.ultraThinMaterial)
@@ -653,7 +697,6 @@ extension ScoresView {
             ForEach(equipo.wrappedValue.jugadores.indices, id: \.self) { idx in
                 let nombre = equipo.wrappedValue.jugadores[idx].nombre
                 let indiv = (idx < equipo.wrappedValue.puntajeIndividual.count) ? equipo.wrappedValue.puntajeIndividual[idx] : 0
-                let enTurno = esJugadorDeTurno(nombre)
 
                 HStack(spacing: 8) {
                     Text(nombre)
@@ -667,14 +710,6 @@ extension ScoresView {
                         .font(.caption.bold())
                         .frame(width: 22, alignment: .trailing)
 
-                    if enTurno {
-                        Button { abrirPickerDesdeTurnoActual() } label: {
-                            Image(systemName: "plus.circle.fill")
-                                .font(.title3)
-                                .foregroundColor(.green)
-                        }
-                        .buttonStyle(.plain)
-                    }
                 }
             }
         }
