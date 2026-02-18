@@ -62,21 +62,7 @@ struct BackgammonBoardView: View {
     @State private var turnConfirmed: Bool = false
     
     @State private var undoStack: [(from: Int, to: Int)] = []
-    
-    // MARK: - Turn Snapshot (Cancel support)
 
-    private struct TurnSnapshot {
-        let moveCount: Int
-    }
-
-    @State private var turnSnapshot: TurnSnapshot?
-
-    private func takeTurnSnapshot() {
-        turnSnapshot = TurnSnapshot(
-            moveCount: confirmedMovesCount
-        )
-    }
-    
     // MARK: - Undo support (WIP mínimo)
     private struct ExecutedMove {
         let from: Int
@@ -143,11 +129,6 @@ struct BackgammonBoardView: View {
 
         // 4. Limpieza UI mínima
         clearSelection()
-    }
-    
-    private func undoConfirmedMove() {
-        // TODO: revertir UNA jugada confirmada
-        confirmedMovesCount = max(0, confirmedMovesCount - 1)
     }
     
     private var isG3_DiceConsumed: Bool {
@@ -333,7 +314,6 @@ struct BackgammonBoardView: View {
                     Button("Confirmar") {
                         turnConfirmed = true
                         startNewTurn()
-                        turnSnapshot = nil
                         nextTurn()
                         movedCheckerIDs.removeAll()
                         lastMovedCheckerID = nil
@@ -1587,10 +1567,6 @@ private func barCell(slot: BarSlot, width: CGFloat, height: CGFloat) -> some Vie
         } else {
             dice = [d1, d2]
             diceUsed = [false, false]
-        }
-        
-        if turnSnapshot == nil {
-            takeTurnSnapshot()
         }
 
         clearSelection()
