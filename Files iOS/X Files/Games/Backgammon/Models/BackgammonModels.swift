@@ -202,3 +202,55 @@ struct BackgammonOpening: Equatable, Codable {
         max(1, startResult.tieCount + 1)
     }
 }
+
+// MARK: - Board Core Models
+
+enum BGPiece {
+    case none
+    case white
+    case black
+}
+
+extension BGPiece {
+    init(color: BGColor) {
+        switch color {
+        case .white: self = .white
+        case .black: self = .black
+        }
+    }
+}
+
+struct BGPointStack {
+    var piece: BGPiece
+    var count: Int
+}
+
+// MARK: - Board Setup Factory
+
+struct BGBoardFactory {
+    
+    static func standardSetup(homeColor: BGColor) -> [Int: BGPointStack] {
+        
+        var p: [Int: BGPointStack] = [:]
+        
+        for i in 1...24 {
+            p[i] = BGPointStack(piece: .none, count: 0)
+        }
+        
+        let awayColor: BGColor = (homeColor == .black) ? .white : .black
+        
+        // Casa (abajo): 2 en 24, 5 en 13, 3 en 8, 5 en 6
+        p[24] = BGPointStack(piece: BGPiece(color: homeColor), count: 2)
+        p[13] = BGPointStack(piece: BGPiece(color: homeColor), count: 5)
+        p[8]  = BGPointStack(piece: BGPiece(color: homeColor), count: 3)
+        p[6]  = BGPointStack(piece: BGPiece(color: homeColor), count: 5)
+        
+        // Visita (arriba): 2 en 1, 5 en 12, 3 en 17, 5 en 19
+        p[1]  = BGPointStack(piece: BGPiece(color: awayColor), count: 2)
+        p[12] = BGPointStack(piece: BGPiece(color: awayColor), count: 5)
+        p[17] = BGPointStack(piece: BGPiece(color: awayColor), count: 3)
+        p[19] = BGPointStack(piece: BGPiece(color: awayColor), count: 5)
+        
+        return p
+    }
+}

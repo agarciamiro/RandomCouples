@@ -1683,17 +1683,3 @@ private static func standardSetup(homeColor: BGPiece) -> [Int: BGPointStack] {
         return p
     }
 }
-
-// MARK: - Helpers locales
-
-private enum BGPiece {
-    case none
-    case white
-    case black
-}
-
-private struct BGPointStack {
-    var piece: BGPiece
-    var count: Int
-}
-
