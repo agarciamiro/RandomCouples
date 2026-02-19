@@ -315,7 +315,6 @@ struct BackgammonBoardView: View {
                 // 🟢 CONFIRMAR (DERECHA)
                 Button("Confirmar") {
                     turnConfirmed = true
-                    startNewTurn()
                     nextTurn()
                     movedCheckerIDs.removeAll()
                     lastMovedCheckerID = nil
@@ -718,7 +717,11 @@ struct BackgammonBoardView: View {
         let dir = moveDirectionForCurrent()
         
         for v in diceValues {
-            let to = index + (dir * v)
+            let to = BGBoardEngine.targetIndex(
+                from: index,
+                die: v,
+                direction: dir
+            )
             
             // Exacto
             if current == casaPiece && to == 0 {
@@ -1293,7 +1296,11 @@ struct BackgammonBoardView: View {
         // ✅ Caso normal
         let dir = moveDirectionForCurrent()
         for v in diceValues {
-            let to = index + (dir * v)
+            let to = BGBoardEngine.targetIndex(
+                from: index,
+                die: v,
+                direction: dir
+            )
             guard (1...24).contains(to) else { continue }
             if isDestinationAllowed(to: to) {
                 highlightedTo.insert(to)
@@ -1447,7 +1454,11 @@ struct BackgammonBoardView: View {
         for from in 1...24 {
             guard let stack = points[from], stack.count > 0, stack.piece == current else { continue }
             for v in diceValues {
-                let to = from + (dir * v)
+                let to = BGBoardEngine.targetIndex(
+                    from: from,
+                    die: v,
+                    direction: dir
+                )
                 
                 // Movimiento dentro del tablero
                 if (1...24).contains(to) {
@@ -1553,6 +1564,11 @@ struct BackgammonBoardView: View {
     }
     
     private func nextTurn() {
+        
+        // Reset flags del turno anterior
+        turnConfirmed = false
+        confirmedMovesCount = 0
+        undoStack.removeAll()
         
         dice = []
         diceUsed = []
