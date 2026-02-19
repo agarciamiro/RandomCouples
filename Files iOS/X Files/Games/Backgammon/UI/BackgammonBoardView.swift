@@ -112,6 +112,8 @@ struct BackgammonBoardView: View {
         
         // 4) Limpieza mínima de selección UI
         clearSelection()
+        movedCheckerIDs.removeAll()
+        lastMovedCheckerID = nil
     }
     
     private func startNewTurn() {
@@ -1584,7 +1586,10 @@ struct BackgammonBoardView: View {
     
     private func moveDirectionForCurrent() -> Int {
         // ✅ La Casa va 24 → 1; Visita va 1 → 24
-        return (current == casaPiece) ? -1 : 1
+        return BGBoardEngine.moveDirection(
+            current: current,
+            casaPiece: casaPiece
+        )
     }
     
     // MARK: - BAR logic
